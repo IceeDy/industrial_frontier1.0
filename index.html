@@ -48,7 +48,7 @@ h3{margin:14px 0 4px;font-size:13px;letter-spacing:.05em;text-transform:uppercas
 </style></head><body>
 <header id="hud"></header><div id="ms"></div><nav id="nav"></nav>
 <section class="v on" id="v0"><div class="sys"><svg id="map" viewBox="0 0 600 290"></svg></div><div id="pn"></div></section>
-<section class="v" id="v1"><div class="grid" id="co"></div><svg id="ch" viewBox="0 0 600 200" preserveAspectRatio="none"></svg><small>Caixa (azul) e valor da empresa (verde).</small><h3>Produção acumulada</h3><div class="grid" id="pr"></div><button onclick="if(confirm('Reiniciar jogo?')){init();F={};render()}">↻ Reiniciar jogo</button></section>
+<section class="v" id="v1"><div class="grid" id="co"></div><svg id="ch" viewBox="0 0 600 200" preserveAspectRatio="none"></svg><small>Caixa (azul) e valor da empresa (verde).</small><h3>Produção acumulada</h3><div class="grid" id="pr"></div><div class="row"><button class="on" onclick="saveGame(true)">💾 Salvar agora</button><button onclick="loadGame(true)">↩ Carregar último save</button><small id="saveStatus" class="mut">O jogo salva automaticamente neste navegador.</small></div><button onclick="if(confirm('Reiniciar jogo? O save atual também será apagado.')){init();F={};sel='Marte';X={p:'ore',d:'Terra'};SP=.5;localStorage.removeItem(SAVE_KEY);render();const st=$('saveStatus');if(st)st.textContent='Novo jogo iniciado.'}">↻ Reiniciar jogo</button></section>
 <section class="v" id="v2"><div class="card"><b>Contratar gerente</b> <small>(₡15/h cada. Executa 1x por hora de jogo)</small>
 <div class="row"><label>O que fazer<select id="ak" onchange="hint()"><option value="sell">Vender excedente</option><option value="buy">Comprar até um estoque</option><option value="transport">Enviar cargas</option></select></label>
 <label>Onde (origem)<select id="al" onchange="hint()"></select></label><label>Destino<select id="ad" onchange="hint()"></select></label><label>Produto<select id="ap" onchange="hint()"></select></label>
@@ -72,6 +72,35 @@ function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logC
  L.forEach(l=>{S.inv[l]={ore:0,ref:0,comp:0};P.forEach(p=>{const[b,d]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd:d,stock:d*24,price:b,mult:1}})});
  say("Empresa fundada. Mina de ferro operando em Marte.")}
 const say=m=>{S.log.unshift([clock(S.t),m]);if(S.log.length>300)S.log.pop()};
+const SAVE_KEY="industrial-frontier-save-v1";
+function saveGame(show=false){
+ try{
+  const payload={version:1,S,F,sel,X,SP,tab,savedAt:new Date().toISOString()};
+  localStorage.setItem(SAVE_KEY,JSON.stringify(payload));
+  const status=$("saveStatus");if(status)status.textContent="Salvo neste navegador às "+new Date().toLocaleTimeString("pt-BR");
+  if(show)toast("Jogo salvo neste navegador.","ok");
+  return true;
+ }catch(e){
+  const status=$("saveStatus");if(status)status.textContent="Não foi possível salvar neste navegador.";
+  if(show)toast("Falha ao salvar. Verifique o espaço disponível no navegador.","err");
+  return false;
+ }
+}
+function loadGame(show=true){
+ try{
+  const raw=localStorage.getItem(SAVE_KEY);if(!raw){if(show)toast("Nenhum save encontrado neste navegador.","err");return false}
+  const d=JSON.parse(raw);
+  if(d.version!==1||!d.S||typeof d.S.t!=="number"||!d.S.inv||!d.S.mk||!Array.isArray(d.S.fac)||!Array.isArray(d.S.tr)||!Array.isArray(d.S.log)||!Array.isArray(d.S.hist)||!Array.isArray(d.S.rules)||!d.S.cap||!d.S.prod)throw Error("Save inválido ou incompatível.");
+  if(!L.every(l=>d.S.inv[l]&&d.S.cap[l]!=null)||!P.every(p=>d.S.prod[p]!=null)||!L.every(l=>P.every(p=>d.S.mk[l+p])))throw Error("O save não contém todos os dados necessários.");
+  S=d.S;F=d.F&&typeof d.F==="object"?d.F:{};sel=L.includes(d.sel)?d.sel:"Marte";
+  X=d.X&&P.includes(d.X.p)&&L.includes(d.X.d)&&d.X.p&&d.X.d?d.X:{p:"ore",d:"Terra"};
+  SP=[0,.5,1,2].includes(d.SP)?d.SP:.5;tab=Number.isInteger(d.tab)&&d.tab>=0&&d.tab<=3?d.tab:0;
+  for(let j=0;j<4;j++)$("v"+j).classList.toggle("on",j===tab);
+  const status=$("saveStatus");if(status)status.textContent="Save carregado de "+new Date(d.savedAt||Date.now()).toLocaleString("pt-BR");
+  if(show){toast("Progresso carregado com sucesso.","ok");render()}
+  return true;
+ }catch(e){if(show)toast("Não foi possível carregar o save: "+e.message,"err");return false}
+}
 const E=(l,p)=>S.mk[l+p],dem=m=>m.bd*m.mult,tgt=m=>dem(m)*24;
 const free=l=>S.cap[l]-P.reduce((a,p)=>a+S.inv[l][p],0);
 const rec=(r,c)=>{S.led.push([S.t,r,c]);S.led=S.led.filter(x=>x[0]>=S.t-24)};
@@ -188,6 +217,8 @@ function render(){const f=fin();
  put("dj",S.log.slice(0,100).map(e=>`<div class="ev"><small>${e[0]}</small>${e[1]}</div>`).join(""));
  const i=S.log.indexOf(lastLog);(i<0?S.log.slice(0,3):S.log.slice(0,i)).reverse().forEach(e=>{if(/concluído|construída|ampliad|Demanda|Gerente/.test(e[1]))toast(e[1])});lastLog=S.log[0]}
 $("al").innerHTML=opts(L);$("ad").innerHTML=opts(L);$("ap").innerHTML=opts(P,PN);$("al").value="Marte";$("ad").value="Terra";
-init();hint();render();
+if(!loadGame(false))init();hint();render();
 setInterval(()=>{if(SP>0){advance(SP/60/4);render()}},250);
+setInterval(()=>saveGame(false),5000);
+addEventListener("beforeunload",()=>saveGame(false));
 </script></body></html>
