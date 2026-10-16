@@ -103,7 +103,7 @@ function loadGame(show=true){
 }
 const E=(l,p)=>S.mk[l+p],dem=m=>m.bd*m.mult,tgt=m=>dem(m)*24;
 const free=l=>S.cap[l]-P.reduce((a,p)=>a+S.inv[l][p],0);
-const rec=(r,c)=>{S.led.push([S.t,r,c]);S.led=S.led.filter(x=>x[0]>=S.t-24)};
+const rec=(r,c,k="operating")=>{S.led.push([S.t,r,c,k]);S.led=S.led.filter(x=>x[0]>=S.t-24)};
 const pf=(m,s=m.stock)=>m.base*Math.min(Math.max(Math.pow(Math.max(s,1)/tgt(m),-.6),.3),3);
 function marketMetrics(m){
  const demand=dem(m),supply=m.bd*Math.pow(Math.max(m.price/m.base,.1),1.5);
@@ -115,13 +115,13 @@ function mv(m,b){const pc=(m.price/b-1)*100;if(Math.abs(pc)>=1)say(`Preço de ${
 function sell(l,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.");const m=E(l,p);
  if(q>S.inv[l][p]+1e-9)throw Error(`Estoque insuficiente em ${l}: ${Math.floor(S.inv[l][p])} un.`);
  const room=tgt(m)*3-m.stock;if(q>room)throw Error(`Mercado saturado em ${l}: só absorve mais ${Math.max(0,Math.floor(room))} un.`);
- const b=m.price,target=pf(m,m.stock+q),a=b+(target-b)*.2,r=q*(b+a)/2;S.inv[l][p]-=q;m.stock+=q;m.price=a;S.cash+=r;rec(r,0);
+ const b=m.price,target=pf(m,m.stock+q),a=b+(target-b)*.2,r=q*(b+a)/2;S.inv[l][p]-=q;m.stock+=q;m.price=a;S.cash+=r;rec(r,0,"sale");
  say(`Venda de ${q} ${PN[p].toLowerCase()} em ${l}: ${money(r)}.`);mv(m,b);return r}
 function buy(l,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.");const m=E(l,p);
  if(q>m.stock-1)throw Error(`Oferta insuficiente em ${l}: ${Math.max(0,Math.floor(m.stock-1))} un.`);
  if(q>free(l)+1e-9)throw Error(`Armazém de ${l} sem espaço: ${Math.floor(free(l))} un. livres.`);
  const b=m.price,target=pf(m,m.stock-q),a=b+(target-b)*.2,c=q*(b+a)/2;if(c>S.cash)throw Error(`Caixa insuficiente: custo ${money(c)}, caixa ${money(S.cash)}.`);
- S.cash-=c;S.inv[l][p]+=q;m.stock-=q;m.price=a;rec(0,c);say(`Compra de ${q} ${PN[p].toLowerCase()} em ${l}: ${money(c)}.`);mv(m,b);return c}
+ S.cash-=c;S.inv[l][p]+=q;m.stock-=q;m.price=a;rec(0,c,"purchase");say(`Compra de ${q} ${PN[p].toLowerCase()} em ${l}: ${money(c)}.`);mv(m,b);return c}
 const incoming=d=>S.tr.filter(t=>t.d===d).reduce((a,t)=>a+t.q,0),inTransit=()=>S.tr.reduce((a,t)=>a+t.q,0);
 function availableShips(){return S.ships.filter(v=>!S.tr.some(t=>t.shipId===v.id&&t.eta>S.t))}
 function maxShipCapacity(){return Math.max(0,...availableShips().map(v=>v.capacity))}
@@ -131,7 +131,7 @@ function ship(o,d,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero
  if(q>free(d)-incoming(d)+1e-9)throw Error(`Armazém de ${d} sem espaço para receber a carga.`);
  const v=availableShips().filter(v=>v.capacity>=q).sort((a,b)=>a.capacity-b.capacity||b.speed-a.speed)[0];if(!v)throw Error(`Nenhuma nave livre comporta ${Math.ceil(q)} un. Compre outra nave ou envie uma carga menor (maior capacidade disponível: ${maxShipCapacity()} un.).`);
  if(c>S.cash)throw Error(`Caixa insuficiente: frete ${money(c)}.`);
- S.inv[o][p]-=q;S.cash-=c;rec(0,c);S.tr.push({id:++S.nid,shipId:v.id,o,d,p,q,c,s:S.t,eta:S.t+h/v.speed});say(`${v.name}: transporte ${o} → ${d} iniciado com ${q} ${PN[p].toLowerCase()}.`)}
+ S.inv[o][p]-=q;S.cash-=c;rec(0,c,"freight");S.tr.push({id:++S.nid,shipId:v.id,o,d,p,q,c,s:S.t,eta:S.t+h/v.speed});say(`${v.name}: transporte ${o} → ${d} iniciado com ${q} ${PN[p].toLowerCase()}.`)}
 function spend(c){if(c>S.cash)throw Error("Caixa insuficiente.");S.cash-=c}
 function build(k){const l=g("bl");spend(SPEC[k].cost);S.fac.push({id:++S.nid,k,loc:l,val:SPEC[k].cost,prod:0,level:1});say(`${SPEC[k].n} construída em ${l}.`);return `${SPEC[k].n} construída em ${l}.`}
 function facUpgradeCost(f){return Math.round(SPEC[f.k].cost*(.65+(f.level||1)*.45))}
@@ -170,9 +170,10 @@ function addRule(){const k=g("ak"),l=g("al"),p=g("ap"),d=g("ad"),b=+g("ab"),res=
  const r={id:++S.nid,k,l,p,d:k==="transport"?d:null,th,res,b,on:true,last:null,st:"Aguardando"};S.rules.push(r);say(`Gerente contratado: ${KIND[k].toLowerCase()} em ${l}.`)}
 const gauss=()=>Math.sqrt(-2*Math.log(1-Math.random()))*Math.cos(2*Math.PI*Math.random());
 function fin(){let inv=0;L.forEach(l=>P.forEach(p=>inv+=S.inv[l][p]*E(l,p).price));
- const cargo=S.tr.reduce((a,t)=>a+t.q*E(t.d,t.p).price,0),assets=S.fac.reduce((a,f)=>a+f.val,0)+S.infra+inv+cargo,w=Math.min(Math.max(S.t,1),24);
- const rv=S.led.filter(x=>x[0]>S.t-w).reduce((a,x)=>a+x[1],0)/w,cs=S.led.filter(x=>x[0]>S.t-w).reduce((a,x)=>a+x[2],0)/w;
- return{cash:S.cash,assets,rv,cs,pr:rv-cs,val:S.cash+assets}}
+ const cargo=S.tr.reduce((a,t)=>a+t.q*E(t.d,t.p).price,0),fixed=S.fac.reduce((a,f)=>a+f.val,0)+S.infra,assets=fixed+inv+cargo,w=Math.min(Math.max(S.t,1),24),rows=S.led.filter(x=>x[0]>S.t-w);
+ const rate=k=>rows.filter(x=>x[3]===k).reduce((a,x)=>a+x[2],0)/w;
+ const rv=rows.reduce((a,x)=>a+x[1],0)/w,cs=rows.reduce((a,x)=>a+x[2],0)/w,purchases=rate("purchase"),freight=rate("freight"),op=rows.filter(x=>x[3]==="operating"||!x[3]).reduce((a,x)=>a+x[2],0)/w;
+ return{cash:S.cash,assets,inv,cargo,fixed,rv,cs,purchases,freight,op,pr:rv-cs,val:S.cash+assets,liquidity:(S.cash/Math.max(1,S.cash+assets))*100}}
 function advance(h){const T={};while(h>1e-9){const dt=Math.min(.25,h);h-=dt;const ph=Math.floor(S.t);S.t+=dt;
   S.rules.forEach(r=>{if(!r.on||(r.last!==null&&S.t-r.last<1-1e-9))return;r.last=S.t;try{r.st=rule(r)}catch(x){r.st="Falhou: "+x.message}});
   S.fac.forEach(f=>{const sp=SPEC[f.k],loc=f.loc;let a=0,p;const lvl=f.level||1,mul=1+.25*(lvl-1);
@@ -250,12 +251,12 @@ function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x
  <h3>🚀 Enviar carga de ${l}</h3><div class="seg">${P.map(p=>`<button class="${X.p===p?"on":""}" onclick="X.p='${p}';render()">${ICON[p]}</button>`).join("")}</div><div class="seg">${dests.map(d=>`<button class="${X.d===d?"on":""}" onclick="X.d='${d}';render()">→ ${d}</button>`).join("")}</div>
  <br><small>Frete ₡${rc}/un · ${rh}h de viagem · logística livre: ${Math.floor(S.logCap-inTransit())} un.</small><div class="bt"><span>Enviar</span>${[100,500].map(n=>`<button onclick="sendQ(${n})">${n}</button>`).join("")}<button onclick="sendQ('max')">Máx</button></div>`}
 function render(){const f=fin();
- put("hud",`<div class="lg"><b>🚀 Industrial Frontier</b><small>${clock(S.t)}</small></div><div class="cash"><small>CAIXA</small><b class="${f.cash<0?"dn":""}">${money(f.cash)}</b></div><div><small>LUCRO/H</small><b class="${f.pr>=0?"up":"dn"}">${f.pr>=0?"▲":"▼"} ${money(Math.abs(f.pr))}</b></div><div><small>VALOR DA EMPRESA</small><b>${money(f.val)}</b></div><div class="sp">${[[0,"⏸"],[.5,"1×"],[1,"2×"],[2,"4×"]].map(([v,i])=>`<button title="${v===0?"Pausar o tempo":v+" hora(s) de jogo por minuto real"}" aria-label="${v===0?"Pausar":v+"x velocidade"}" class="${SP===v?"on":""}" onclick="SP=${v};render()">${i}</button>`).join("")}<button onclick="skip(6)">+6h</button></div>`);
+ put("hud",`<div class="lg"><b>🚀 Industrial Frontier</b><small>${clock(S.t)}</small></div><div class="cash"><small>CAIXA</small><b class="${f.cash<0?"dn":""}">${money(f.cash)}</b></div><div><small>FLUXO DE CAIXA/H</small><b class="${f.pr>=0?"up":"dn"}">${f.pr>=0?"▲":"▼"} ${money(Math.abs(f.pr))}</b></div><div><small>VALOR DA EMPRESA</small><b>${money(f.val)}</b></div><div class="sp">${[[0,"⏸"],[.5,"1×"],[1,"2×"],[2,"4×"]].map(([v,i])=>`<button title="${v===0?"Pausar o tempo":v+" hora(s) de jogo por minuto real"}" aria-label="${v===0?"Pausar":v+"x velocidade"}" class="${SP===v?"on":""}" onclick="SP=${v};render()">${i}</button>`).join("")}<button onclick="skip(6)">+6h</button></div>`);
  const mi=MS.findIndex(m=>!m[2]());
  put("ms",mi<0?`<div class="mi win">🏆 <b>Protótipo concluído!</b> Continue expandindo seu império.</div>`:`<div class="mi"><span class="mn">MISSÃO ${mi+1}/${MS.length}</span><b>${MS[mi][0]}</b><div class="dots">${MS.map((_,j)=>`<i class="${j<mi?"d":j===mi?"c":""}"></i>`).join("")}</div><small>${MS[mi][1]}</small></div>`);
  put("nav",["🌌 Sistema","📈 Empresa","🤖 Gerentes","📜 Diário"].map((n,i)=>`<button class="${tab===i?"on":""}" onclick="setTab(${i})">${n}</button>`).join(""));
  put("map",mapSvg());put("pn",panel());
- put("co",[["Caixa",f.cash],["Ativos",f.assets],["Receita/h",f.rv],["Custos/h",f.cs],["Lucro/h",f.pr],["Valor da empresa",f.val]].map(([a,b])=>`<div class="m"><small>${a}</small><b>${money(b)}</b></div>`).join(""));
+ put("co",[["Caixa disponível",f.cash],["Estoque imobilizado",f.inv+f.cargo],["Ativos fixos",f.fixed],["Vendas/h",f.rv],["Compras de estoque/h",f.purchases],["Frete/h",f.freight],["Custos operacionais/h",f.op],["Fluxo de caixa/h",f.pr],["Liquidez",f.liquidity.toFixed(1)+"%"],["Valor da empresa",f.val]].map(([a,b])=>`<div class="m"><small>${a}</small><b>${typeof b==="string"?b:money(b)}</b></div>`).join(""));
  put("pr",P.map(p=>`<div class="m"><small>${ICON[p]} ${PN[p]}</small><b>${Math.round(S.prod[p]).toLocaleString("pt-BR")}</b></div>`).join(""));
  const H=S.hist;if(H.length>1){const mx=Math.max(...H.map(x=>Math.max(x[1],x[2],1))),mn=Math.min(0,...H.map(x=>x[1])),Xp=i=>i/(H.length-1)*600,Y=v=>190-(v-mn)/(mx-mn||1)*180,pl=(j,c)=>`<polyline fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke" points="${H.map((x,i)=>Xp(i).toFixed(1)+","+Y(x[j]).toFixed(1)).join(" ")}"/>`;put("ch",pl(1,"#5b8cff")+pl(2,"#3ddc97"))}
  put("ru",S.rules.length?S.rules.map(r=>`<div class="card rc"><div><b>${KIND[r.k]}</b><br>${ruleText(r)}<br><span class="chip">${r.on?"🟢 Ativo":"⏸ Pausado"} · ${r.st}</span></div><button onclick="rl(${r.id},0)">${r.on?"⏸ Pausar":"▶ Ativar"}</button><button onclick="rl(${r.id},1)">🗑</button></div>`).join(""):`<p class="mut">Nenhum gerente ainda. Contrate um e deixe a empresa trabalhar sozinha.</p>`);
