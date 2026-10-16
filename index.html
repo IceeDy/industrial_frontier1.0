@@ -129,7 +129,7 @@ const ICON={ore:"🪨",ref:"🔩",comp:"⚙️"},FI={mine:"⛏️",refinery:"�
 const POS={Terra:[100,160],Lua:[300,58],Marte:[500,175]};
 const COL={Terra:["#6fc0ff","#1b5fa8"],Lua:["#e3e6ea","#7a808c"],Marte:["#ff9a6b","#b3411e"]};
 const DESC={Terra:"Centro consumidor: muita demanda por minério e ferro.",Lua:"Compra minério em volume, mas paga pouco.",Marte:"Sua base. Pagam bem por ferro refinado e componentes."};
-let sel="Marte",X={p:"ore",d:"Terra"},F={},down=0,SP=1,tab=0,lastLog=null;
+let sel="Marte",X={p:"ore",d:"Terra"},F={},down=0,SP=.5,tab=0,lastLog=null;
 addEventListener("pointerdown",()=>down=1);["pointerup","pointercancel"].forEach(e=>addEventListener(e,()=>down=0));
 const _s=sell,_sh=ship;sell=function(...a){const r=_s(...a);F.sold=1;return r};ship=function(...a){const r=_sh(...a);F.shipped=1;return r};
 const has=k=>S.fac.some(f=>f.k===k);
@@ -176,7 +176,7 @@ function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x
  <h3>🚀 Enviar carga de ${l}</h3><div class="seg">${P.map(p=>`<button class="${X.p===p?"on":""}" onclick="X.p='${p}';render()">${ICON[p]}</button>`).join("")}</div><div class="seg">${dests.map(d=>`<button class="${X.d===d?"on":""}" onclick="X.d='${d}';render()">→ ${d}</button>`).join("")}</div>
  <br><small>Frete ₡${rc}/un · ${rh}h de viagem · logística livre: ${Math.floor(S.logCap-inTransit())} un.</small><div class="bt"><span>Enviar</span>${[100,500].map(n=>`<button onclick="sendQ(${n})">${n}</button>`).join("")}<button onclick="sendQ('max')">Máx</button></div>`}
 function render(){const f=fin();
- put("hud",`<div class="lg"><b>🚀 Industrial Frontier</b><small>${clock(S.t)}</small></div><div class="cash"><small>CAIXA</small><b class="${f.cash<0?"dn":""}">${money(f.cash)}</b></div><div><small>LUCRO/H</small><b class="${f.pr>=0?"up":"dn"}">${f.pr>=0?"▲":"▼"} ${money(Math.abs(f.pr))}</b></div><div><small>VALOR DA EMPRESA</small><b>${money(f.val)}</b></div><div class="sp">${[[0,"⏸"],[1,"1×"],[3,"3×"],[6,"6×"]].map(([v,i])=>`<button title="${v===0?"Pausar o tempo":v+" hora(s) de jogo por minuto real"}" aria-label="${v===0?"Pausar":v+"x velocidade"}" class="${SP===v?"on":""}" onclick="SP=${v};render()">${i}</button>`).join("")}<button onclick="skip(6)">+6h</button></div>`);
+ put("hud",`<div class="lg"><b>🚀 Industrial Frontier</b><small>${clock(S.t)}</small></div><div class="cash"><small>CAIXA</small><b class="${f.cash<0?"dn":""}">${money(f.cash)}</b></div><div><small>LUCRO/H</small><b class="${f.pr>=0?"up":"dn"}">${f.pr>=0?"▲":"▼"} ${money(Math.abs(f.pr))}</b></div><div><small>VALOR DA EMPRESA</small><b>${money(f.val)}</b></div><div class="sp">${[[0,"⏸"],[.5,"1×"],[1,"2×"],[2,"4×"]].map(([v,i])=>`<button title="${v===0?"Pausar o tempo":(v*2)+" hora(s) de jogo por minuto real"}" aria-label="${v===0?"Pausar":v+"x velocidade"}" class="${SP===v?"on":""}" onclick="SP=${v};render()">${i}</button>`).join("")}<button onclick="skip(6)">+6h</button></div>`);
  const mi=MS.findIndex(m=>!m[2]());
  put("ms",mi<0?`<div class="mi win">🏆 <b>Protótipo concluído!</b> Continue expandindo seu império.</div>`:`<div class="mi"><span class="mn">MISSÃO ${mi+1}/${MS.length}</span><b>${MS[mi][0]}</b><div class="dots">${MS.map((_,j)=>`<i class="${j<mi?"d":j===mi?"c":""}"></i>`).join("")}</div><small>${MS[mi][1]}</small></div>`);
  put("nav",["🌌 Sistema","📈 Empresa","🤖 Gerentes","📜 Diário"].map((n,i)=>`<button class="${tab===i?"on":""}" onclick="setTab(${i})">${n}</button>`).join(""));
