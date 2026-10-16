@@ -143,13 +143,35 @@ function upgradeShip(id){const v=S.ships.find(x=>x.id===id);if(!v)throw Error("N
 function warehouse(){const l=g("bl");spend(10000);S.cap[l]+=1000;S.infra+=10000;say(`Armazém de ${l} ampliado em 1000 un.`);return "Armazém ampliado."}
 function logi(){spend(5000);S.logCap+=1000;S.infra+=5000;say("Capacidade logística ampliada em 1000 un.");return "Capacidade logística ampliada."}
 function productReserve(l,p){return S.fac.filter(f=>f.loc===l).reduce((a,f)=>a+(p==="ore"&&f.k==="refinery"?SPEC.refinery.rate*(1+.25*((f.level||1)-1)):p==="ore"&&f.k==="fuelPlant"?SPEC.fuelPlant.rate*2*(1+.25*((f.level||1)-1)):p==="ref"&&f.k==="factory"?SPEC.factory.rate*10*(1+.25*((f.level||1)-1)):0),0)}
+function smartInputPurchase(l,candidates){
+ const inputs=candidates.map(x=>({...x,use:productReserve(l,x.p)}))
+  .map(x=>({...x,coverage:x.use>0?x.st/x.use:Infinity,
+   incoming:S.tr.filter(t=>t.d===l&&t.p===x.p&&t.eta<=S.t+4).reduce((a,t)=>a+t.q,0)}))
+  .filter(x=>x.use>0&&x.coverage<3&&x.m.stock>2)
+  .sort((a,b)=>a.coverage-b.coverage);
+ if(!inputs.length)return null;
+ const x=inputs[0],limit=x.coverage<.5?1.35:x.coverage<1?1.25:x.coverage<2?1.15:1.05;
+ if(x.m.price>x.m.base*limit)return{bought:false,critical:x.coverage<1,
+  message:`Reposição de ${PN[x.p]} aguardando preço: cobertura ${x.coverage.toFixed(1)}h, preço ${money(x.m.price)} (limite atual ${money(x.m.base*limit)}).`};
+ const reserveCash=Math.max(1000,S.cash*(x.coverage<1?.25:.4));
+ const budget=Math.max(0,S.cash-reserveCash);
+ const target=Math.max(0,x.use*4-x.st-x.incoming);
+ const q=Math.floor(Math.min(target,100,free(l),x.m.stock-1,budget/Math.max(1,x.m.price)));
+ if(q<1)return{bought:false,critical:x.coverage<1,
+  message:`Insumo crítico ${PN[x.p]}: cobertura ${x.coverage.toFixed(1)}h, mas compra limitada por caixa, oferta ou espaço. Reserva de caixa: ${money(reserveCash)}.`};
+ const cost=buy(l,x.p,q);
+ return{bought:true,critical:true,
+  message:`Reposição de produção: ${q} ${PN[x.p]} por ${money(cost)}; cobertura antes da compra ${x.coverage.toFixed(1)}h, limite de preço ${Math.round((limit-1)*100)}% acima da base.`};
+}
 function smartTrade(r){const l=r.l;
- const candidates=P.map(p=>({p,m:E(l,p),st:S.inv[l][p],reserve:productReserve(l,p)}));
+ const candidates=P.map(p=>{const use=productReserve(l,p);return{p,m:E(l,p),st:S.inv[l][p],use,reserve:use*4}});
+ const replenishment=smartInputPurchase(l,candidates);
+ if(replenishment?.bought)return replenishment.message;
  const sellable=candidates.filter(x=>x.st-x.reserve>1&&x.m.price>=x.m.base*1.05&&tgt(x.m)*3-x.m.stock>=1).sort((a,b)=>((b.m.price-b.m.base)/Math.max(1,b.m.base))-((a.m.price-a.m.base)/Math.max(1,a.m.base)));
  if(sellable.length){const x=sellable[0],q=Math.floor(Math.min(x.st-x.reserve,Math.max(1,(x.st-x.reserve)*.2),tgt(x.m)*3-x.m.stock));if(q>0){const rev=sell(l,x.p,q);return`Oportunidade de venda: ${q} ${PN[x.p]} por ${money(rev)} (preço ${money(x.m.price)}).`}}
  const budget=Math.max(0,S.cash-Math.max(1000,S.cash*.55));
- const buys=candidates.filter(x=>x.m.price<=x.m.base*.88&&x.m.stock>2).sort((a,b)=>(a.m.price/a.m.base)-(b.m.price/b.m.base));
- if(!buys.length)return"Sem oportunidade: preços fora da faixa de compra/venda.";
+ const buys=candidates.filter(x=>x.m.price<=x.m.base*.88&&x.m.stock>2&&(x.use<=0||x.st/x.use<4)).sort((a,b)=>(a.m.price/a.m.base)-(b.m.price/b.m.base));
+ if(!buys.length)return replenishment?.message||"Sem oportunidade: preços fora da faixa de compra/venda e cobertura de produção suficiente.";
  const x=buys[0],q=Math.floor(Math.min(free(l),x.m.stock-1,25,budget/Math.max(1,x.m.price)));
  if(q<1)return`Preservando capital de giro: caixa ${money(S.cash)}, reserva mínima ${money(Math.max(1000,S.cash*.55))}.`;
  const cost=buy(l,x.p,q);return`Compra oportunista: ${q} ${PN[x.p]} por ${money(cost)}; reserva de caixa preservada.`
@@ -219,10 +241,10 @@ function setTab(i){tab=i;for(let j=0;j<4;j++)$("v"+j).classList.toggle("on",j===
 function tr(l,p,sl,v){act(()=>{const m=E(l,p);if(sl){let q=Math.floor(S.inv[l][p]*v);if(q<1)throw Error("Você não tem nada para vender aqui.");q=Math.min(q,Math.floor(tgt(m)*3-m.stock));if(q<1)throw Error("Mercado saturado. Tente outro planeta!");return`Vendeu ${q} ${PN[p]} por ${money(sell(l,p,q))}`}
  const q=Math.min(v,Math.floor(free(l)),Math.floor(m.stock-1));if(q<1)throw Error("Sem espaço no armazém ou sem oferta.");return`Comprou ${q} ${PN[p]} por ${money(buy(l,p,q))}`})}
 function sendQ(n){act(()=>{const l=sel,p=X.p,d=X.d;let q=n==="max"?Math.floor(Math.min(S.inv[l][p],S.logCap-inTransit(),free(d)-incoming(d),maxShipCapacity())):n;if(q<1)throw Error("Nada a enviar (estoque, logística ou espaço no destino).");ship(l,d,p,q);return`🚀 ${q} ${PN[p]} a caminho de ${d}`})}
-const ruleText=r=>({smartTrade:`${r.l}: avalia todos os produtos; vende em preço favorável, compra em desconto e preserva 55% do caixa (mínimo ₡1.000)`,smartTransport:`${r.l}: escolhe automaticamente produto e destino pela margem estimada após frete`,sell:`Vender ${PN[r.p]} em ${r.l} se preço ≥ ₡${r.th}, guardando ${r.res} (lotes de ${r.b})`,buy:`Comprar ${PN[r.p]} em ${r.l} se preço ≤ ₡${r.th}, até ${r.res} em estoque (lotes de ${r.b})`,transport:`Enviar lotes de ${r.b} ${PN[r.p]}: ${r.l} → ${r.d}, guardando ${r.res} na origem`}[r.k]||r.k);
+const ruleText=r=>({smartTrade:`${r.l}: prioriza insumos de produção por cobertura de estoque; ajusta o limite de preço à urgência, preserva 4h de insumos e mantém reserva de caixa`,smartTransport:`${r.l}: escolhe automaticamente produto e destino pela margem estimada após frete`,sell:`Vender ${PN[r.p]} em ${r.l} se preço ≥ ₡${r.th}, guardando ${r.res} (lotes de ${r.b})`,buy:`Comprar ${PN[r.p]} em ${r.l} se preço ≤ ₡${r.th}, até ${r.res} em estoque (lotes de ${r.b})`,transport:`Enviar lotes de ${r.b} ${PN[r.p]}: ${r.l} → ${r.d}, guardando ${r.res} na origem`}[r.k]||r.k);
 function rl(id,rm){const r=S.rules.find(x=>x.id===id);if(rm)S.rules.splice(S.rules.indexOf(r),1);else{r.on=!r.on;r.st=r.on?"Aguardando":"Pausado"}render()}
 function hint(){const k=g("ak"),l=g("al"),p=PN[g("ap")],t=g("at"),r=g("ar"),b=g("ab");
- $("hn").textContent={smartTrade:`O gerente analisa todos os produtos de ${l}. Vende quando o preço supera a referência em 8% e compra com desconto de 18%, mantendo uma reserva de caixa de 55% (mínimo ₡1.000).`,smartTransport:`O gerente analisa estoque, preços, capacidade da frota, espaço de destino e frete. Só envia quando estima margem superior a 12% por unidade.`,sell:`Vende ${p} em ${l} sempre que o preço for ≥ ₡${t}, guardando ${r} un. e vendendo até ${b} por vez.`,buy:`Compra ${p} em ${l} sempre que o preço for ≤ ₡${t}, até manter ${r} un., ${b} por vez.`,transport:`Envia lotes de ${b} ${p} de ${l} para ${g("ad")} quando passar de ${r} un. na origem.`}[k];
+ $("hn").textContent={smartTrade:`O gerente prioriza insumos que alimentam as fábricas. Se a cobertura cair abaixo de 3h, tenta repor até 4h de consumo: aceita até +5% da base com 2–3h de cobertura, +15% com 1–2h, +25% com 0,5–1h e +35% abaixo de 0,5h. Em reposições urgentes, reserva 25–40% do caixa (mínimo ₡1.000); nas compras oportunistas, exige desconto de 12% e evita acumular insumos acima de 4h.`,smartTransport:`O gerente analisa estoque, preços, capacidade da frota, espaço de destino e frete. Só envia quando estima margem superior a 12% por unidade.`,sell:`Vende ${p} em ${l} sempre que o preço for ≥ ₡${t}, guardando ${r} un. e vendendo até ${b} por vez.`,buy:`Compra ${p} em ${l} sempre que o preço for ≤ ₡${t}, até manter ${r} un., ${b} por vez.`,transport:`Envia lotes de ${b} ${p} de ${l} para ${g("ad")} quando passar de ${r} un. na origem.`}[k];
  $("ad").parentElement.style.display=["transport","smartTransport"].includes(k)?"":"none";$("ap").parentElement.style.display=["smartTrade","smartTransport"].includes(k)?"none":"";["at","ar","ab"].forEach(id=>$(id).parentElement.style.display=["smartTrade","smartTransport"].includes(k)?"none":"");}
 function mapSvg(){let s=`<defs>${L.map(l=>`<radialGradient id="g${l}" cx="35%" cy="30%"><stop offset="0" stop-color="${COL[l][0]}"/><stop offset="1" stop-color="${COL[l][1]}"/></radialGradient>`).join("")}</defs>`;
  [["Terra","Lua"],["Lua","Marte"],["Terra","Marte"]].forEach(([a,b])=>{const[c,h]=rt(a,b),[x1,y1]=POS[a],[x2,y2]=POS[b];s+=`<line class="rt" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/><text class="rl" x="${(x1+x2)/2}" y="${(y1+y2)/2+(a==="Terra"&&b==="Marte"?18:-6)}">₡${c}/un · ${h}h</text>`});
