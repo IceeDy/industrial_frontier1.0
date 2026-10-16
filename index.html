@@ -45,7 +45,7 @@ h3{margin:14px 0 4px;font-size:13px;letter-spacing:.05em;text-transform:uppercas
 #tt{position:fixed;right:10px;top:calc(10px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:6px;z-index:9;max-width:min(340px,90vw)}
 .to{background:var(--p);border:1px solid var(--bd);border-left:4px solid var(--ac);border-radius:8px;padding:8px 12px;box-shadow:0 6px 20px #0006;animation:in .2s}.to.ok{border-left-color:var(--ok)}.to.err{border-left-color:var(--er)}
 @keyframes in{from{transform:translateX(30px);opacity:0}}
-</style></head><body>
+.sys{background-image:url('assets/space-backdrop.svg');background-size:cover;background-position:center}\n</style></head><body>
 <header id="hud"></header><div id="ms"></div><nav id="nav"></nav>
 <section class="v on" id="v0"><div class="sys"><svg id="map" viewBox="0 0 600 290"></svg></div><div id="pn"></div></section>
 <section class="v" id="v1"><div class="grid" id="co"></div><svg id="ch" viewBox="0 0 600 200" preserveAspectRatio="none"></svg><small>Caixa (azul) e valor da empresa (verde).</small><h3>Produção acumulada</h3><div class="grid" id="pr"></div><div class="row"><button class="on" onclick="saveGame(true)">💾 Salvar agora</button><button onclick="loadGame(true)">↩ Carregar último save</button><small id="saveStatus" class="mut">O jogo salva automaticamente neste navegador.</small></div><button onclick="if(confirm('Reiniciar jogo? O save atual também será apagado.')){init();F={};sel='Marte';X={p:'ore',d:'Terra'};SP=.5;localStorage.removeItem(SAVE_KEY);render();const st=$('saveStatus');if(st)st.textContent='Novo jogo iniciado.'}">↻ Reiniciar jogo</button></section>
