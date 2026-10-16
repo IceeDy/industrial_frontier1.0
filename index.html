@@ -142,10 +142,11 @@ function shipUpgradeCost(v){return Math.round(Math.max(v.cost||0,30000)*(.25+.2*
 function upgradeShip(id){const v=S.ships.find(x=>x.id===id);if(!v)throw Error("Nave não encontrada.");v.level=v.level||1;if(v.level>=5)throw Error("Esta nave já está no nível máximo.");const c=shipUpgradeCost(v);spend(c);v.level++;v.capacity=Math.round(v.capacity*1.25);v.speed=+(v.speed+.12).toFixed(2);v.cost=(v.cost||0)+c;say(`${v.name} melhorada para o nível ${v.level}: capacidade ${v.capacity}, velocidade ${v.speed.toFixed(2)}x.`);return `${v.name}: capacidade e velocidade melhoradas.`}
 function warehouse(){const l=g("bl");spend(10000);S.cap[l]+=1000;S.infra+=10000;say(`Armazém de ${l} ampliado em 1000 un.`);return "Armazém ampliado."}
 function logi(){spend(5000);S.logCap+=1000;S.infra+=5000;say("Capacidade logística ampliada em 1000 un.");return "Capacidade logística ampliada."}
+function productReserve(l,p){return S.fac.filter(f=>f.loc===l).reduce((a,f)=>a+(p==="ore"&&f.k==="refinery"?SPEC.refinery.rate*(1+.25*((f.level||1)-1)):p==="ore"&&f.k==="fuelPlant"?SPEC.fuelPlant.rate*2*(1+.25*((f.level||1)-1)):p==="ref"&&f.k==="factory"?SPEC.factory.rate*10*(1+.25*((f.level||1)-1)):0),0)}
 function smartTrade(r){const l=r.l;
- const candidates=P.map(p=>({p,m:E(l,p),st:S.inv[l][p]}));
- const sellable=candidates.filter(x=>x.st>1&&x.m.price>=x.m.base*1.08&&tgt(x.m)*3-x.m.stock>=1).sort((a,b)=>(b.m.price/b.m.base)-(a.m.price/a.m.base));
- if(sellable.length){const x=sellable[0],q=Math.floor(Math.min(x.st,Math.max(1,x.st*.35),tgt(x.m)*3-x.m.stock));if(q>0){const rev=sell(l,x.p,q);return`Oportunidade de venda: ${q} ${PN[x.p]} por ${money(rev)} (preço ${money(x.m.price)}).`}}
+ const candidates=P.map(p=>({p,m:E(l,p),st:S.inv[l][p],reserve:productReserve(l,p)}));
+ const sellable=candidates.filter(x=>x.st-x.reserve>1&&x.m.price>=x.m.base*1.08&&tgt(x.m)*3-x.m.stock>=1).sort((a,b)=>(b.m.price/b.m.base)-(a.m.price/a.m.base));
+ if(sellable.length){const x=sellable[0],q=Math.floor(Math.min(x.st-x.reserve,Math.max(1,(x.st-x.reserve)*.35),tgt(x.m)*3-x.m.stock));if(q>0){const rev=sell(l,x.p,q);return`Oportunidade de venda: ${q} ${PN[x.p]} por ${money(rev)} (preço ${money(x.m.price)}).`}}
  const budget=Math.max(0,S.cash-Math.max(1000,S.cash*.55));
  const buys=candidates.filter(x=>x.m.price<=x.m.base*.82&&x.m.stock>2).sort((a,b)=>(a.m.price/a.m.base)-(b.m.price/b.m.base));
  if(!buys.length)return"Sem oportunidade: preços fora da faixa de compra/venda.";
@@ -156,7 +157,7 @@ function smartTrade(r){const l=r.l;
 function smartTransport(r){
  if(!availableShips().length)return"Nenhuma nave disponível; aguardando a frota.";
  const source=r.l,choices=[];
- for(const p of P){const stock=S.inv[source][p];if(stock<1)continue;for(const d of L){if(d===source)continue;let route;try{route=rt(source,d)}catch{continue}const m0=E(source,p),m1=E(d,p),room=Math.max(0,tgt(m1)*3-m1.stock),q=Math.floor(Math.min(stock,maxShipCapacity(),free(d)-incoming(d),room,S.logCap-inTransit()));if(q<1)continue;const localUnit=m0.price,remoteUnit=m1.price,freight=route[0],margin=remoteUnit-localUnit-freight;if(margin<=Math.max(2,localUnit*.12))continue;const score=margin*q/Math.max(1,route[1]);choices.push({p,d,q,margin,score,freight,remoteUnit})}}
+ for(const p of P){const stock=Math.max(0,S.inv[source][p]-productReserve(source,p));if(stock<1)continue;for(const d of L){if(d===source)continue;let route;try{route=rt(source,d)}catch{continue}const m0=E(source,p),m1=E(d,p),room=Math.max(0,tgt(m1)*3-m1.stock),q=Math.floor(Math.min(stock,maxShipCapacity(),free(d)-incoming(d),room,S.logCap-inTransit()));if(q<1)continue;const localUnit=m0.price,remoteUnit=m1.price,freight=route[0],margin=remoteUnit-localUnit-freight;if(margin<=Math.max(2,localUnit*.12))continue;const score=margin*q/Math.max(1,route[1]);choices.push({p,d,q,margin,score,freight,remoteUnit})}}
  choices.sort((a,b)=>b.score-a.score);const x=choices[0];if(!x)return"No há rota com margem suficiente após frete; aguardando melhores preços.";
  ship(source,x.d,x.p,x.q);return`Melhor rota: ${x.q} ${PN[x.p]} para ${x.d}; margem estimada ${money(x.margin)}/un após frete. Venda no destino para realizar o ganho.`
 }
