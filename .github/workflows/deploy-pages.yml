@@ -31,6 +31,8 @@ jobs:
         run: |
           mkdir _site
           cp index.html _site/index.html
+          mkdir -p _site/assets
+          cp assets/space-backdrop.svg _site/assets/space-backdrop.svg
           touch _site/.nojekyll
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
