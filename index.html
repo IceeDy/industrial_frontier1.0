@@ -68,7 +68,7 @@ const money=x=>"₡"+Math.round(x).toLocaleString("pt-BR");
 const rt=(a,b)=>{const k=[a,b].sort().join("-");if(a===b||!ROUTE[k])throw Error("Rota inválida.");return ROUTE[k]};
 const clock=t=>{const m=Math.round(480+t*60);return `Dia ${Math.floor(m/1440)+1} — ${String(Math.floor(m%1440/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`};
 let S;
-function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logCap:1000,fac:[{id:1,k:"mine",loc:"Marte",val:5000,prod:0}],infra:0,led:[],prod:Object.fromEntries(P.map(p=>[p,0])),mk:{},tr:[],log:[],hist:[],rules:[],nid:1};
+function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logCap:1000,ships:[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}],fac:[{id:1,k:"mine",loc:"Marte",val:5000,prod:0,level:1}],infra:0,led:[],prod:Object.fromEntries(P.map(p=>[p,0])),mk:{},tr:[],log:[],hist:[],rules:[],nid:1};
  L.forEach(l=>{S.inv[l]=Object.fromEntries(P.map(p=>[p,0]));P.forEach(p=>{const[b,d]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd:d,stock:d*24,price:b,mult:1,hist:[[0,b]]}})});
  say("Empresa fundada. Mina de ferro operando em Marte.")}
 const say=m=>{S.log.unshift([clock(S.t),m]);if(S.log.length>300)S.log.pop()};
@@ -92,7 +92,7 @@ function loadGame(show=true){
   const d=JSON.parse(raw);
   if(d.version!==1||!d.S||typeof d.S.t!=="number"||!d.S.inv||!d.S.mk||!Array.isArray(d.S.fac)||!Array.isArray(d.S.tr)||!Array.isArray(d.S.log)||!Array.isArray(d.S.hist)||!Array.isArray(d.S.rules)||!d.S.cap||!d.S.prod)throw Error("Save inválido ou incompatível.");
   if(!L.every(l=>d.S.inv[l]&&d.S.cap[l]!=null)||!["ore","ref","comp"].every(p=>d.S.prod[p]!=null)||!L.every(l=>["ore","ref","comp"].every(p=>d.S.inv[l][p]!=null&&d.S.mk[l+p])))throw Error("O save não contém os dados básicos necessários.");
-  S=d.S;L.forEach(l=>{P.forEach(p=>{if(S.inv[l][p]==null)S.inv[l][p]=0;if(!S.mk[l+p]){const[b,bd]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd,stock:bd*24,price:b,mult:1,hist:[[Math.floor(S.t),b]]}}})});P.forEach(p=>{if(S.prod[p]==null)S.prod[p]=0});Object.values(S.mk).forEach(m=>{if(!Array.isArray(m.hist))m.hist=[[Math.floor(S.t),m.price]]});F=d.F&&typeof d.F==="object"?d.F:{};sel=L.includes(d.sel)?d.sel:"Marte";
+  S=d.S;if(!Array.isArray(S.ships))S.ships=[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}];S.fac.forEach(f=>{if(!Number.isInteger(f.level))f.level=1});L.forEach(l=>{P.forEach(p=>{if(S.inv[l][p]==null)S.inv[l][p]=0;if(!S.mk[l+p]){const[b,bd]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd,stock:bd*24,price:b,mult:1,hist:[[Math.floor(S.t),b]]}}})});P.forEach(p=>{if(S.prod[p]==null)S.prod[p]=0});Object.values(S.mk).forEach(m=>{if(!Array.isArray(m.hist))m.hist=[[Math.floor(S.t),m.price]]});F=d.F&&typeof d.F==="object"?d.F:{};sel=L.includes(d.sel)?d.sel:"Marte";
   X=d.X&&P.includes(d.X.p)&&L.includes(d.X.d)&&d.X.p&&d.X.d?d.X:{p:"ore",d:"Terra"};
   SP=[0,.5,1,2].includes(d.SP)?d.SP:.5;tab=Number.isInteger(d.tab)&&d.tab>=0&&d.tab<=3?d.tab:0;
   for(let j=0;j<4;j++)$("v"+j).classList.toggle("on",j===tab);
@@ -123,14 +123,23 @@ function buy(l,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.")
  const b=m.price,target=pf(m,m.stock-q),a=b+(target-b)*.2,c=q*(b+a)/2;if(c>S.cash)throw Error(`Caixa insuficiente: custo ${money(c)}, caixa ${money(S.cash)}.`);
  S.cash-=c;S.inv[l][p]+=q;m.stock-=q;m.price=a;rec(0,c);say(`Compra de ${q} ${PN[p].toLowerCase()} em ${l}: ${money(c)}.`);mv(m,b);return c}
 const incoming=d=>S.tr.filter(t=>t.d===d).reduce((a,t)=>a+t.q,0),inTransit=()=>S.tr.reduce((a,t)=>a+t.q,0);
+function availableShips(){return S.ships.filter(v=>!S.tr.some(t=>t.shipId===v.id&&t.eta>S.t))}
+function maxShipCapacity(){return Math.max(0,...availableShips().map(v=>v.capacity))}
 function ship(o,d,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.");const[cpu,h]=rt(o,d),c=q*cpu;
  if(q>S.inv[o][p]+1e-9)throw Error(`Estoque insuficiente em ${o}: ${Math.floor(S.inv[o][p])} un.`);
  if(q>S.logCap-inTransit()+1e-9)throw Error(`Capacidade logística livre: ${Math.floor(S.logCap-inTransit())} un.`);
  if(q>free(d)-incoming(d)+1e-9)throw Error(`Armazém de ${d} sem espaço para receber a carga.`);
+ const v=availableShips().filter(v=>v.capacity>=q).sort((a,b)=>a.capacity-b.capacity||b.speed-a.speed)[0];if(!v)throw Error(`Nenhuma nave livre comporta ${Math.ceil(q)} un. Compre outra nave ou envie uma carga menor (maior capacidade disponível: ${maxShipCapacity()} un.).`);
  if(c>S.cash)throw Error(`Caixa insuficiente: frete ${money(c)}.`);
- S.inv[o][p]-=q;S.cash-=c;rec(0,c);S.tr.push({id:++S.nid,o,d,p,q,c,s:S.t,eta:S.t+h});say(`Transporte ${o} → ${d} iniciado: ${q} ${PN[p].toLowerCase()}.`)}
+ S.inv[o][p]-=q;S.cash-=c;rec(0,c);S.tr.push({id:++S.nid,shipId:v.id,o,d,p,q,c,s:S.t,eta:S.t+h/v.speed});say(`${v.name}: transporte ${o} → ${d} iniciado com ${q} ${PN[p].toLowerCase()}.`)}
 function spend(c){if(c>S.cash)throw Error("Caixa insuficiente.");S.cash-=c}
-function build(k){const l=g("bl");spend(SPEC[k].cost);S.fac.push({id:++S.nid,k,loc:l,val:SPEC[k].cost,prod:0});say(`${SPEC[k].n} construída em ${l}.`);return `${SPEC[k].n} construída em ${l}.`}
+function build(k){const l=g("bl");spend(SPEC[k].cost);S.fac.push({id:++S.nid,k,loc:l,val:SPEC[k].cost,prod:0,level:1});say(`${SPEC[k].n} construída em ${l}.`);return `${SPEC[k].n} construída em ${l}.`}
+function facUpgradeCost(f){return Math.round(SPEC[f.k].cost*(.65+(f.level||1)*.45))}
+function upgradeFacility(id){const f=S.fac.find(x=>x.id===id);if(!f)throw Error("Instalação não encontrada.");f.level=f.level||1;if(f.level>=5)throw Error("Esta instalação já está no nível máximo.");const c=facUpgradeCost(f);spend(c);f.level++;f.val+=c;say(`${SPEC[f.k].n} em ${f.loc} melhorada para o nível ${f.level}. Produção +25%.`);return `${SPEC[f.k].n} agora está no nível ${f.level}.`}
+const SHIP_TYPES={cargo:{name:"Cargueiro Mk I",capacity:1500,speed:.8,cost:55000},courier:{name:"Nave expressa",capacity:300,speed:1.5,cost:40000},balanced:{name:"Transportadora Mk I",capacity:800,speed:1.1,cost:35000}};
+function buyShip(type){const spec=SHIP_TYPES[type];if(!spec)throw Error("Modelo de nave inválido.");spend(spec.cost);const v={id:++S.nid,...spec,level:1};S.ships.push(v);say(`Nova nave adquirida: ${v.name} (${v.capacity} un.).`);return `${v.name} adicionada à frota.`}
+function shipUpgradeCost(v){return Math.round(Math.max(v.cost||0,30000)*(.25+.2*(v.level||1)))}
+function upgradeShip(id){const v=S.ships.find(x=>x.id===id);if(!v)throw Error("Nave não encontrada.");v.level=v.level||1;if(v.level>=5)throw Error("Esta nave já está no nível máximo.");const c=shipUpgradeCost(v);spend(c);v.level++;v.capacity=Math.round(v.capacity*1.25);v.speed=+(v.speed+.12).toFixed(2);v.cost=(v.cost||0)+c;say(`${v.name} melhorada para o nível ${v.level}: capacidade ${v.capacity}, velocidade ${v.speed.toFixed(2)}x.`);return `${v.name}: capacidade e velocidade melhoradas.`}
 function warehouse(){const l=g("bl");spend(10000);S.cap[l]+=1000;S.infra+=10000;say(`Armazém de ${l} ampliado em 1000 un.`);return "Armazém ampliado."}
 function logi(){spend(5000);S.logCap+=1000;S.infra+=5000;say("Capacidade logística ampliada em 1000 un.");return "Capacidade logística ampliada."}
 function rule(r){const m=E(r.l,r.p),st=S.inv[r.l][r.p];
