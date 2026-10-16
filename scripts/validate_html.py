@@ -48,8 +48,9 @@ assert source.lstrip().lower().startswith("<!doctype html>"), "DOCTYPE HTML ause
 assert "".join(parser.title).strip() == "Industrial Frontier", "Título inesperado ou ausente"
 assert parser.inline_scripts, "Nenhum JavaScript incorporado encontrado"
 assert "setInterval" in source, "Loop principal do jogo não encontrado"
-assert "SP=1,tab=0,lastLog=null;" in source, "Velocidade padrão deve ser 1 hora de jogo por minuto real"
-assert '[[0,"⏸"],[1,"1×"],[3,"3×"],[6,"6×"]]' in source, "Controles de velocidade esperados não encontrados"
+assert "SP=.5,tab=0,lastLog=null;" in source, "Velocidade padrão deve ser 1 hora de jogo a cada 2 minutos reais"
+assert '[[0,"⏸"],[.5,"1×"],[1,"2×"],[2,"4×"]]' in source, "Controles de velocidade esperados não encontrados"
+assert '(v*2)+" hora(s) de jogo por minuto real"' in source, "Descrição da velocidade não corresponde ao relógio do jogo"
 assert "function init" in source or "init=()=>{" in source or "function init(" in source, "Inicialização do jogo não encontrada"
 
 node = shutil.which("node")
