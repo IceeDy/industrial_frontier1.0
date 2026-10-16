@@ -224,7 +224,7 @@ function advance(h){S.prodLog=S.prodLog||{};while(h>1e-9){const dt=Math.min(.05,
    else if(f.k==="copperMine"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].copper+=a;p="copper"}
    else if(f.k==="silicaExtractor"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].silica+=a;p="silica"}
    else if(f.k==="fuelPlant"){const i=Math.min(sp.rate*2*mul*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
-   if(a>1e-9){f.prod+=a;S.prod[p]+=a;const key=String(f.id);if(!S.prodLog[key])S.prodLog[key]={id:f.id,k:f.k,loc:f.loc,p,a:0,inputs:{}};S.prodLog[key].a+=a;Object.entries(usedInputs).forEach(([material,q])=>S.prodLog[key].inputs[material]=(S.prodLog[key].inputs[material]||0)+q)}});
+   if(a>1e-9){f.prod+=a;S.prod[p]+=a;const key=String(f.id);if(!S.prodLog[key])S.prodLog[key]={id:f.id,k:f.k,loc:f.loc,p,a:0,inputs:{}};if(!S.prodLog[key].inputs)S.prodLog[key].inputs={};S.prodLog[key].a+=a;Object.entries(usedInputs).forEach(([material,q])=>S.prodLog[key].inputs[material]=(S.prodLog[key].inputs[material]||0)+q)}});
   S.tr.slice().forEach(t=>{if(S.t+1e-9>=t.eta&&free(t.d)+1e-9>=t.q){S.inv[t.d][t.p]+=t.q;S.tr.splice(S.tr.indexOf(t),1);say(`Transporte ${t.o} → ${t.d} concluído: ${t.q} ${PN[t.p].toLowerCase()} entregues.`)}});
   const offtakeQty=consumeCompanyStock(dt);
   Object.values(S.mk).forEach(m=>{m.mult+=(1-m.mult)*Math.min(1,.03*dt)+gauss()*.02*Math.sqrt(dt);
