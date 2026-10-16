@@ -57,19 +57,19 @@ h3{margin:14px 0 4px;font-size:13px;letter-spacing:.05em;text-transform:uppercas
 <section class="v" id="v3"><div class="card" id="dj"></div></section>
 <div id="tt"></div><input type="hidden" id="bl" value="Marte">
 <script>
-const L=["Terra","Lua","Marte"],P=["ore","ref","comp"];
-const PN={ore:"Minério de ferro",ref:"Ferro refinado",comp:"Componentes industriais"};
-const SEED={Terra:{ore:[12,80],ref:[30,60],comp:[450,8]},Lua:{ore:[9,120],ref:[26,30],comp:[420,4]},Marte:{ore:[8,40],ref:[34,50],comp:[520,12]}};
-const ROUTE={"Lua-Terra":[5,6],"Marte-Terra":[10,24],"Lua-Marte":[8,18]};
-const SPEC={mine:{n:"Mina de ferro",cost:20000,rate:100,up:40,rc:"→ Minério de ferro"},refinery:{n:"Refinaria",cost:5000,rate:50,up:60,rc:"10 minério → 8 ferro refinado"},factory:{n:"Fábrica",cost:15000,rate:10,up:120,rc:"10 ferro refinado → 1 componente"}};
+const L=["Terra","Lua","Marte"],P=["ore","ref","comp","copper","silica","fuel"];
+const PN={ore:"Minério de ferro",ref:"Ferro refinado",comp:"Componentes industriais",copper:"Cobre",silica:"Silício",fuel:"Combustível"};
+const SEED={Terra:{ore:[12,80],ref:[30,60],comp:[450,8],copper:[85,40],silica:[22,100],fuel:[65,50]},Lua:{ore:[9,120],ref:[26,30],comp:[420,4],copper:[78,25],silica:[18,140],fuel:[82,20]},Marte:{ore:[8,40],ref:[34,50],comp:[520,12],copper:[70,60],silica:[28,70],fuel:[58,35]}};
+const ROUTE={"Lua-Terra":[5,1.5],"Marte-Terra":[10,2.5],"Lua-Marte":[8,1]};
+const SPEC={mine:{n:"Mina de ferro",cost:20000,rate:100,up:40,rc:"Produz 100 minério/h"},refinery:{n:"Refinaria",cost:5000,rate:50,up:60,rc:"Consome 50 minério/h → produz 40 ferro/h"},factory:{n:"Fábrica",cost:15000,rate:4,up:90,rc:"Consome 40 ferro/h → produz 4 componentes/h"},copperMine:{n:"Mina de cobre",cost:18000,rate:35,up:45,rc:"Produz 35 cobre/h"},silicaExtractor:{n:"Extratora de silício",cost:12000,rate:60,up:35,rc:"Produz 60 silício/h"},fuelPlant:{n:"Usina de combustível",cost:22000,rate:10,up:80,rc:"Consome 20 minério/h → produz 10 combustível/h"}};
 const KIND={sell:"Venda automática",buy:"Compra automática",transport:"Transporte automático"};
 const $=id=>document.getElementById(id),g=id=>$(id).value;
 const money=x=>"₡"+Math.round(x).toLocaleString("pt-BR");
 const rt=(a,b)=>{const k=[a,b].sort().join("-");if(a===b||!ROUTE[k])throw Error("Rota inválida.");return ROUTE[k]};
 const clock=t=>{const m=Math.round(480+t*60);return `Dia ${Math.floor(m/1440)+1} — ${String(Math.floor(m%1440/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`};
 let S;
-function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logCap:1000,fac:[{id:1,k:"mine",loc:"Marte",val:5000,prod:0}],infra:0,led:[],prod:{ore:0,ref:0,comp:0},mk:{},tr:[],log:[],hist:[],rules:[],nid:1};
- L.forEach(l=>{S.inv[l]={ore:0,ref:0,comp:0};P.forEach(p=>{const[b,d]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd:d,stock:d*24,price:b,mult:1,hist:[[0,b]]}})});
+function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logCap:1000,fac:[{id:1,k:"mine",loc:"Marte",val:5000,prod:0}],infra:0,led:[],prod:Object.fromEntries(P.map(p=>[p,0])),mk:{},tr:[],log:[],hist:[],rules:[],nid:1};
+ L.forEach(l=>{S.inv[l]=Object.fromEntries(P.map(p=>[p,0]));P.forEach(p=>{const[b,d]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd:d,stock:d*24,price:b,mult:1,hist:[[0,b]]}})});
  say("Empresa fundada. Mina de ferro operando em Marte.")}
 const say=m=>{S.log.unshift([clock(S.t),m]);if(S.log.length>300)S.log.pop()};
 const SAVE_KEY="industrial-frontier-save-v1";
@@ -91,8 +91,8 @@ function loadGame(show=true){
   const raw=localStorage.getItem(SAVE_KEY);if(!raw){if(show)toast("Nenhum save encontrado neste navegador.","err");return false}
   const d=JSON.parse(raw);
   if(d.version!==1||!d.S||typeof d.S.t!=="number"||!d.S.inv||!d.S.mk||!Array.isArray(d.S.fac)||!Array.isArray(d.S.tr)||!Array.isArray(d.S.log)||!Array.isArray(d.S.hist)||!Array.isArray(d.S.rules)||!d.S.cap||!d.S.prod)throw Error("Save inválido ou incompatível.");
-  if(!L.every(l=>d.S.inv[l]&&d.S.cap[l]!=null)||!P.every(p=>d.S.prod[p]!=null)||!L.every(l=>P.every(p=>d.S.mk[l+p])))throw Error("O save não contém todos os dados necessários.");
-  S=d.S;Object.values(S.mk).forEach(m=>{if(!Array.isArray(m.hist))m.hist=[[Math.floor(S.t),m.price]]});F=d.F&&typeof d.F==="object"?d.F:{};sel=L.includes(d.sel)?d.sel:"Marte";
+  if(!L.every(l=>d.S.inv[l]&&d.S.cap[l]!=null)||!["ore","ref","comp"].every(p=>d.S.prod[p]!=null)||!L.every(l=>["ore","ref","comp"].every(p=>d.S.inv[l][p]!=null&&d.S.mk[l+p])))throw Error("O save não contém os dados básicos necessários.");
+  S=d.S;L.forEach(l=>{P.forEach(p=>{if(S.inv[l][p]==null)S.inv[l][p]=0;if(!S.mk[l+p]){const[b,bd]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd,stock:bd*24,price:b,mult:1,hist:[[Math.floor(S.t),b]]}}})});P.forEach(p=>{if(S.prod[p]==null)S.prod[p]=0});Object.values(S.mk).forEach(m=>{if(!Array.isArray(m.hist))m.hist=[[Math.floor(S.t),m.price]]});F=d.F&&typeof d.F==="object"?d.F:{};sel=L.includes(d.sel)?d.sel:"Marte";
   X=d.X&&P.includes(d.X.p)&&L.includes(d.X.d)&&d.X.p&&d.X.d?d.X:{p:"ore",d:"Terra"};
   SP=[0,.5,1,2].includes(d.SP)?d.SP:.5;tab=Number.isInteger(d.tab)&&d.tab>=0&&d.tab<=3?d.tab:0;
   for(let j=0;j<4;j++)$("v"+j).classList.toggle("on",j===tab);
@@ -150,7 +150,10 @@ function advance(h){const T={};while(h>1e-9){const dt=Math.min(.25,h);h-=dt;cons
   S.fac.forEach(f=>{const sp=SPEC[f.k],loc=f.loc;let a=0,p;
    if(f.k==="mine"){a=Math.min(sp.rate*dt,free(loc));if(a>1e-9)S.inv[loc].ore+=a;p="ore"}
    else if(f.k==="refinery"){const i=Math.min(sp.rate*dt,S.inv[loc].ore);if(i>1e-9){S.inv[loc].ore-=i;a=i*.8;S.inv[loc].ref+=a}p="ref"}
-   else{const i=Math.min(sp.rate*10*dt,S.inv[loc].ref);if(i>1e-9){S.inv[loc].ref-=i;a=i/10;S.inv[loc].comp+=a}p="comp"}
+   else if(f.k==="factory"){const i=Math.min(sp.rate*10*dt,S.inv[loc].ref);if(i>1e-9){S.inv[loc].ref-=i;a=i/10;S.inv[loc].comp+=a}p="comp"}
+   else if(f.k==="copperMine"){a=Math.min(sp.rate*dt,free(loc));if(a>1e-9)S.inv[loc].copper+=a;p="copper"}
+   else if(f.k==="silicaExtractor"){a=Math.min(sp.rate*dt,free(loc));if(a>1e-9)S.inv[loc].silica+=a;p="silica"}
+   else if(f.k==="fuelPlant"){const i=Math.min(sp.rate*2*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
    if(a>1e-9){f.prod+=a;S.prod[p]+=a;(T[f.id]=T[f.id]||{f,p,a:0}).a+=a}});
   S.tr.slice().forEach(t=>{if(S.t+1e-9>=t.eta&&free(t.d)+1e-9>=t.q){S.inv[t.d][t.p]+=t.q;S.tr.splice(S.tr.indexOf(t),1);say(`Transporte ${t.o} → ${t.d} concluído: ${t.q} ${PN[t.p].toLowerCase()} entregues.`)}});
   Object.values(S.mk).forEach(m=>{m.mult+=(1-m.mult)*Math.min(1,.03*dt)+gauss()*.02*Math.sqrt(dt);
@@ -158,9 +161,9 @@ function advance(h){const T={};while(h>1e-9){const dt=Math.min(.25,h);h-=dt;cons
    m.mult=Math.min(Math.max(m.mult,.4),2.5);m.stock=Math.max(0,m.stock+m.bd*Math.pow(m.price/m.base,1.5)*dt-Math.min(m.stock,dem(m)*dt));const target=pf(m);m.price+=(target-m.price)*Math.min(1,.5*dt)});
   const c=(S.fac.reduce((a,f)=>a+SPEC[f.k].up,0)+S.rules.filter(r=>r.on).length*15)*dt;S.cash-=c;rec(0,c);
   if(Math.floor(S.t)>ph){Object.values(S.mk).forEach(m=>{m.hist.push([Math.floor(S.t),m.price]);if(m.hist.length>25)m.hist.shift()});const f=fin();S.hist.push([Math.floor(S.t),f.cash,f.val]);if(S.hist.length>600)S.hist.shift()}}
- Object.values(T).forEach(x=>say(`${SPEC[x.f.k].n} de ${x.f.loc} ${{mine:"produziu",refinery:"refinou",factory:"fabricou"}[x.f.k]} ${Math.round(x.a)} ${PN[x.p].toLowerCase()}.`))}
+ Object.values(T).forEach(x=>say(`${SPEC[x.f.k].n} em ${x.f.loc} ${({mine:"produziu",refinery:"refinou",factory:"fabricou",copperMine:"produziu",silicaExtractor:"produziu",fuelPlant:"produziu"})[x.f.k]} ${Math.round(x.a)} ${PN[x.p].toLowerCase()}.`))}
 
-const ICON={ore:"🪨",ref:"🔩",comp:"⚙️"},FI={mine:"⛏️",refinery:"🏭",factory:"⚙️"};
+const ICON={ore:"🪨",ref:"🔩",comp:"⚙️",copper:"🟠",silica:"🔷",fuel:"⛽"},FI={mine:"⛏️",refinery:"🏭",factory:"⚙️",copperMine:"🪓",silicaExtractor:"🔷",fuelPlant:"⛽"};
 const POS={Terra:[100,160],Lua:[300,58],Marte:[500,175]};
 const COL={Terra:["#6fc0ff","#1b5fa8"],Lua:["#e3e6ea","#7a808c"],Marte:["#ff9a6b","#b3411e"]};
 const DESC={Terra:"Centro consumidor: muita demanda por minério e ferro.",Lua:"Compra minério em volume, mas paga pouco.",Marte:"Sua base. Pagam bem por ferro refinado e componentes."};
@@ -194,7 +197,7 @@ function hint(){const k=g("ak"),l=g("al"),p=PN[g("ap")],t=g("at"),r=g("ar"),b=g(
 function mapSvg(){let s=`<defs>${L.map(l=>`<radialGradient id="g${l}" cx="35%" cy="30%"><stop offset="0" stop-color="${COL[l][0]}"/><stop offset="1" stop-color="${COL[l][1]}"/></radialGradient>`).join("")}</defs>`;
  [["Terra","Lua"],["Lua","Marte"],["Terra","Marte"]].forEach(([a,b])=>{const[c,h]=rt(a,b),[x1,y1]=POS[a],[x2,y2]=POS[b];s+=`<line class="rt" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/><text class="rl" x="${(x1+x2)/2}" y="${(y1+y2)/2+(a==="Terra"&&b==="Marte"?18:-6)}">₡${c}/un · ${h}h</text>`});
  L.forEach(l=>{const[x,y]=POS[l],n=k=>S.fac.filter(f=>f.loc===l&&f.k===k).length,u=P.reduce((a,p)=>a+S.inv[l][p],0);
-  s+=`<g class="pl${l===sel?" on":""}" onclick="pick('${l}')"><circle cx="${x}" cy="${y}" r="44" fill="url(#g${l})"/><text class="pn" x="${x}" y="${y+66}">${l}</text><text class="pb" x="${x}" y="${y+84}">${["mine","refinery","factory"].map(k=>n(k)?FI[k]+n(k)+" ":"").join("")}📦 ${Math.round(u)}/${S.cap[l]}</text></g>`});
+  s+=`<g class="pl${l===sel?" on":""}" onclick="pick('${l}')"><circle cx="${x}" cy="${y}" r="44" fill="url(#g${l})"/><text class="pn" x="${x}" y="${y+66}">${l}</text><text class="pb" x="${x}" y="${y+84}">${Object.keys(SPEC).map(k=>n(k)?FI[k]+n(k)+" ":"").join("")}📦 ${Math.round(u)}/${S.cap[l]}</text></g>`});
  S.tr.forEach(t=>{const p=Math.min(1,(S.t-t.s)/(t.eta-t.s)),[x1,y1]=POS[t.o],[x2,y2]=POS[t.d];s+=`<text class="sh" x="${(x1+(x2-x1)*p).toFixed(1)}" y="${(y1+(y2-y1)*p).toFixed(1)}">🚀</text>`});return s}
 function marketTrend(m){if(!Array.isArray(m.hist)||m.hist.length<2)return null;const base=m.hist[0][1];return base>0?(m.price/base-1)*100:0}
 function card(l,p){const m=E(l,p),pc=(m.price/m.base-1)*100,have=S.inv[l][p],cv=Math.min(100,m.stock/tgt(m)*50),mm=marketMetrics(m),trend=marketTrend(m),trendLabel=m.hist.length>=25?"24h":"desde início";
@@ -205,9 +208,9 @@ function card(l,p){const m=E(l,p),pc=(m.price/m.base-1)*100,have=S.inv[l][p],cv=
  <small>Oferta e demanda movem o estoque; o preço se ajusta gradualmente. A tendência compara o preço atual com o histórico recente.</small>
  <div class="bt"><span>Vender</span>${[.1,.5,1].map(f=>`<button onclick="tr('${l}','${p}',1,${f})">${f<1?f*100+"%":"Tudo"}</button>`).join("")}<span>Comprar</span>${[100,500].map(n=>`<button onclick="tr('${l}','${p}',0,${n})">+${n}</button>`).join("")}</div></div>`}
 function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x=>x!==l);if(!dests.includes(X.d))X.d=dests[0];const[rc,rh]=rt(l,X.d);
- const fs=S.fac.filter(f=>f.loc===l).map(f=>{let st="Produzindo",ok=1;if(f.k==="mine"&&free(l)<1){st="Armazém cheio";ok=0}if(f.k==="refinery"&&S.inv[l].ore<1){st="Sem minério";ok=0}if(f.k==="factory"&&S.inv[l].ref<1){st="Sem ferro refinado";ok=0}
+ const fs=S.fac.filter(f=>f.loc===l).map(f=>{let st="Produzindo",ok=1;if(["mine","copperMine","silicaExtractor"].includes(f.k)&&free(l)<1){st="Armazém cheio";ok=0}if(["refinery","fuelPlant"].includes(f.k)&&S.inv[l].ore<1){st="Sem minério";ok=0}if(f.k==="factory"&&S.inv[l].ref<1){st="Sem ferro refinado";ok=0}
   return`<div class="fc ${ok?"run":"idle"}"><span class="ic">${FI[f.k]}</span><div><b>${SPEC[f.k].n}</b><small>${SPEC[f.k].rc} · ${SPEC[f.k].rate}/h</small></div><em>${st}</em></div>`}).join("")||"<small>Nenhuma instalação aqui.</small>";
- const shop=[["🏭 Refinaria",5000,"build('refinery')","10 minério → 8 ferro"],["⚙️ Fábrica",15000,"build('factory')","10 ferro → 1 componente"],["⛏️ Mina",20000,"build('mine')","+100 minério/h"],["📦 Armazém",10000,"warehouse()","+1.000 de espaço"],["🚛 Logística",5000,"logi()","+1.000 em trânsito"]]
+ const shop=[["🏭 Refinaria",5000,"build('refinery')","50 minério/h → 40 ferro/h"],["⚙️ Fábrica",15000,"build('factory')","40 ferro/h → 4 componentes/h"],["⛏️ Mina de ferro",20000,"build('mine')","+100 minério/h"],["🟠 Mina de cobre",18000,"build('copperMine')","+35 cobre/h"],["🔷 Extratora de silício",12000,"build('silicaExtractor')","+60 silício/h"],["⛽ Usina de combustível",22000,"build('fuelPlant')","20 minério/h → 10 combustível/h"],["📦 Armazém",10000,"warehouse()","+1.000 de espaço"],["🚛 Logística",5000,"logi()","+1.000 em trânsito"]]
   .map(([n,c,f,d])=>`<button ${S.cash<c?"disabled":""} onclick="act(()=>${f})">${n}<b>${money(c)}</b><small>${d}</small></button>`).join("");
  return`<h2>${l}</h2><small>${DESC[l]}</small><div style="margin-top:6px"><small>📦 Armazém ${Math.round(u)}/${S.cap[l]}</small><div class="pg"><i style="width:${u/S.cap[l]*100}%"></i></div></div>
  <h3>Mercado</h3><small>Barra cheia = mercado saturado (preço cai). Barra vazia = escassez (preço sobe).</small>${P.map(p=>card(l,p)).join("")}
@@ -215,7 +218,7 @@ function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x
  <h3>🚀 Enviar carga de ${l}</h3><div class="seg">${P.map(p=>`<button class="${X.p===p?"on":""}" onclick="X.p='${p}';render()">${ICON[p]}</button>`).join("")}</div><div class="seg">${dests.map(d=>`<button class="${X.d===d?"on":""}" onclick="X.d='${d}';render()">→ ${d}</button>`).join("")}</div>
  <br><small>Frete ₡${rc}/un · ${rh}h de viagem · logística livre: ${Math.floor(S.logCap-inTransit())} un.</small><div class="bt"><span>Enviar</span>${[100,500].map(n=>`<button onclick="sendQ(${n})">${n}</button>`).join("")}<button onclick="sendQ('max')">Máx</button></div>`}
 function render(){const f=fin();
- put("hud",`<div class="lg"><b>🚀 Industrial Frontier</b><small>${clock(S.t)}</small></div><div class="cash"><small>CAIXA</small><b class="${f.cash<0?"dn":""}">${money(f.cash)}</b></div><div><small>LUCRO/H</small><b class="${f.pr>=0?"up":"dn"}">${f.pr>=0?"▲":"▼"} ${money(Math.abs(f.pr))}</b></div><div><small>VALOR DA EMPRESA</small><b>${money(f.val)}</b></div><div class="sp">${[[0,"⏸"],[.5,"1×"],[1,"2×"],[2,"4×"]].map(([v,i])=>`<button title="${v===0?"Pausar o tempo":(v*2)+" hora(s) de jogo por minuto real"}" aria-label="${v===0?"Pausar":v+"x velocidade"}" class="${SP===v?"on":""}" onclick="SP=${v};render()">${i}</button>`).join("")}<button onclick="skip(6)">+6h</button></div>`);
+ put("hud",`<div class="lg"><b>🚀 Industrial Frontier</b><small>${clock(S.t)}</small></div><div class="cash"><small>CAIXA</small><b class="${f.cash<0?"dn":""}">${money(f.cash)}</b></div><div><small>LUCRO/H</small><b class="${f.pr>=0?"up":"dn"}">${f.pr>=0?"▲":"▼"} ${money(Math.abs(f.pr))}</b></div><div><small>VALOR DA EMPRESA</small><b>${money(f.val)}</b></div><div class="sp">${[[0,"⏸"],[.5,"1×"],[1,"2×"],[2,"4×"]].map(([v,i])=>`<button title="${v===0?"Pausar o tempo":v+" hora(s) de jogo por minuto real"}" aria-label="${v===0?"Pausar":v+"x velocidade"}" class="${SP===v?"on":""}" onclick="SP=${v};render()">${i}</button>`).join("")}<button onclick="skip(6)">+6h</button></div>`);
  const mi=MS.findIndex(m=>!m[2]());
  put("ms",mi<0?`<div class="mi win">🏆 <b>Protótipo concluído!</b> Continue expandindo seu império.</div>`:`<div class="mi"><span class="mn">MISSÃO ${mi+1}/${MS.length}</span><b>${MS[mi][0]}</b><div class="dots">${MS.map((_,j)=>`<i class="${j<mi?"d":j===mi?"c":""}"></i>`).join("")}</div><small>${MS[mi][1]}</small></div>`);
  put("nav",["🌌 Sistema","📈 Empresa","🤖 Gerentes","📜 Diário"].map((n,i)=>`<button class="${tab===i?"on":""}" onclick="setTab(${i})">${n}</button>`).join(""));
