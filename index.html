@@ -68,7 +68,7 @@ const money=x=>"₡"+Math.round(x).toLocaleString("pt-BR");
 const rt=(a,b)=>{const k=[a,b].sort().join("-");if(a===b||!ROUTE[k])throw Error("Rota inválida.");return ROUTE[k]};
 const clock=t=>{const m=Math.round(480+t*60);return `Dia ${Math.floor(m/1440)+1} — ${String(Math.floor(m%1440/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`};
 let S;
-function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logCap:1000,fac:[{id:1,k:"mine",loc:"Marte",val:5000,prod:0}],infra:0,led:[],prod:Object.fromEntries(P.map(p=>[p,0])),mk:{},tr:[],log:[],hist:[],rules:[],nid:1};
+function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logCap:1000,ships:[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}],fac:[{id:1,k:"mine",loc:"Marte",val:5000,prod:0,level:1}],infra:0,led:[],prod:Object.fromEntries(P.map(p=>[p,0])),mk:{},tr:[],log:[],hist:[],rules:[],nid:1};
  L.forEach(l=>{S.inv[l]=Object.fromEntries(P.map(p=>[p,0]));P.forEach(p=>{const[b,d]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd:d,stock:d*24,price:b,mult:1,hist:[[0,b]]}})});
  say("Empresa fundada. Mina de ferro operando em Marte.")}
 const say=m=>{S.log.unshift([clock(S.t),m]);if(S.log.length>300)S.log.pop()};
@@ -92,7 +92,7 @@ function loadGame(show=true){
   const d=JSON.parse(raw);
   if(d.version!==1||!d.S||typeof d.S.t!=="number"||!d.S.inv||!d.S.mk||!Array.isArray(d.S.fac)||!Array.isArray(d.S.tr)||!Array.isArray(d.S.log)||!Array.isArray(d.S.hist)||!Array.isArray(d.S.rules)||!d.S.cap||!d.S.prod)throw Error("Save inválido ou incompatível.");
   if(!L.every(l=>d.S.inv[l]&&d.S.cap[l]!=null)||!["ore","ref","comp"].every(p=>d.S.prod[p]!=null)||!L.every(l=>["ore","ref","comp"].every(p=>d.S.inv[l][p]!=null&&d.S.mk[l+p])))throw Error("O save não contém os dados básicos necessários.");
-  S=d.S;L.forEach(l=>{P.forEach(p=>{if(S.inv[l][p]==null)S.inv[l][p]=0;if(!S.mk[l+p]){const[b,bd]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd,stock:bd*24,price:b,mult:1,hist:[[Math.floor(S.t),b]]}}})});P.forEach(p=>{if(S.prod[p]==null)S.prod[p]=0});Object.values(S.mk).forEach(m=>{if(!Array.isArray(m.hist))m.hist=[[Math.floor(S.t),m.price]]});F=d.F&&typeof d.F==="object"?d.F:{};sel=L.includes(d.sel)?d.sel:"Marte";
+  S=d.S;if(!Array.isArray(S.ships))S.ships=[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}];S.fac.forEach(f=>{if(!Number.isInteger(f.level))f.level=1});L.forEach(l=>{P.forEach(p=>{if(S.inv[l][p]==null)S.inv[l][p]=0;if(!S.mk[l+p]){const[b,bd]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd,stock:bd*24,price:b,mult:1,hist:[[Math.floor(S.t),b]]}}})});P.forEach(p=>{if(S.prod[p]==null)S.prod[p]=0});Object.values(S.mk).forEach(m=>{if(!Array.isArray(m.hist))m.hist=[[Math.floor(S.t),m.price]]});F=d.F&&typeof d.F==="object"?d.F:{};sel=L.includes(d.sel)?d.sel:"Marte";
   X=d.X&&P.includes(d.X.p)&&L.includes(d.X.d)&&d.X.p&&d.X.d?d.X:{p:"ore",d:"Terra"};
   SP=[0,.5,1,2].includes(d.SP)?d.SP:.5;tab=Number.isInteger(d.tab)&&d.tab>=0&&d.tab<=3?d.tab:0;
   for(let j=0;j<4;j++)$("v"+j).classList.toggle("on",j===tab);
@@ -123,14 +123,23 @@ function buy(l,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.")
  const b=m.price,target=pf(m,m.stock-q),a=b+(target-b)*.2,c=q*(b+a)/2;if(c>S.cash)throw Error(`Caixa insuficiente: custo ${money(c)}, caixa ${money(S.cash)}.`);
  S.cash-=c;S.inv[l][p]+=q;m.stock-=q;m.price=a;rec(0,c);say(`Compra de ${q} ${PN[p].toLowerCase()} em ${l}: ${money(c)}.`);mv(m,b);return c}
 const incoming=d=>S.tr.filter(t=>t.d===d).reduce((a,t)=>a+t.q,0),inTransit=()=>S.tr.reduce((a,t)=>a+t.q,0);
+function availableShips(){return S.ships.filter(v=>!S.tr.some(t=>t.shipId===v.id&&t.eta>S.t))}
+function maxShipCapacity(){return Math.max(0,...availableShips().map(v=>v.capacity))}
 function ship(o,d,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.");const[cpu,h]=rt(o,d),c=q*cpu;
  if(q>S.inv[o][p]+1e-9)throw Error(`Estoque insuficiente em ${o}: ${Math.floor(S.inv[o][p])} un.`);
  if(q>S.logCap-inTransit()+1e-9)throw Error(`Capacidade logística livre: ${Math.floor(S.logCap-inTransit())} un.`);
  if(q>free(d)-incoming(d)+1e-9)throw Error(`Armazém de ${d} sem espaço para receber a carga.`);
+ const v=availableShips().filter(v=>v.capacity>=q).sort((a,b)=>a.capacity-b.capacity||b.speed-a.speed)[0];if(!v)throw Error(`Nenhuma nave livre comporta ${Math.ceil(q)} un. Compre outra nave ou envie uma carga menor (maior capacidade disponível: ${maxShipCapacity()} un.).`);
  if(c>S.cash)throw Error(`Caixa insuficiente: frete ${money(c)}.`);
- S.inv[o][p]-=q;S.cash-=c;rec(0,c);S.tr.push({id:++S.nid,o,d,p,q,c,s:S.t,eta:S.t+h});say(`Transporte ${o} → ${d} iniciado: ${q} ${PN[p].toLowerCase()}.`)}
+ S.inv[o][p]-=q;S.cash-=c;rec(0,c);S.tr.push({id:++S.nid,shipId:v.id,o,d,p,q,c,s:S.t,eta:S.t+h/v.speed});say(`${v.name}: transporte ${o} → ${d} iniciado com ${q} ${PN[p].toLowerCase()}.`)}
 function spend(c){if(c>S.cash)throw Error("Caixa insuficiente.");S.cash-=c}
-function build(k){const l=g("bl");spend(SPEC[k].cost);S.fac.push({id:++S.nid,k,loc:l,val:SPEC[k].cost,prod:0});say(`${SPEC[k].n} construída em ${l}.`);return `${SPEC[k].n} construída em ${l}.`}
+function build(k){const l=g("bl");spend(SPEC[k].cost);S.fac.push({id:++S.nid,k,loc:l,val:SPEC[k].cost,prod:0,level:1});say(`${SPEC[k].n} construída em ${l}.`);return `${SPEC[k].n} construída em ${l}.`}
+function facUpgradeCost(f){return Math.round(SPEC[f.k].cost*(.65+(f.level||1)*.45))}
+function upgradeFacility(id){const f=S.fac.find(x=>x.id===id);if(!f)throw Error("Instalação não encontrada.");f.level=f.level||1;if(f.level>=5)throw Error("Esta instalação já está no nível máximo.");const c=facUpgradeCost(f);spend(c);f.level++;f.val+=c;say(`${SPEC[f.k].n} em ${f.loc} melhorada para o nível ${f.level}. Produção +25%.`);return `${SPEC[f.k].n} agora está no nível ${f.level}.`}
+const SHIP_TYPES={cargo:{name:"Cargueiro Mk I",capacity:1500,speed:.8,cost:55000},courier:{name:"Nave expressa",capacity:300,speed:1.5,cost:40000},balanced:{name:"Transportadora Mk I",capacity:800,speed:1.1,cost:35000}};
+function buyShip(type){const spec=SHIP_TYPES[type];if(!spec)throw Error("Modelo de nave inválido.");spend(spec.cost);const v={id:++S.nid,...spec,level:1};S.ships.push(v);say(`Nova nave adquirida: ${v.name} (${v.capacity} un.).`);return `${v.name} adicionada à frota.`}
+function shipUpgradeCost(v){return Math.round(Math.max(v.cost||0,30000)*(.25+.2*(v.level||1)))}
+function upgradeShip(id){const v=S.ships.find(x=>x.id===id);if(!v)throw Error("Nave não encontrada.");v.level=v.level||1;if(v.level>=5)throw Error("Esta nave já está no nível máximo.");const c=shipUpgradeCost(v);spend(c);v.level++;v.capacity=Math.round(v.capacity*1.25);v.speed=+(v.speed+.12).toFixed(2);v.cost=(v.cost||0)+c;say(`${v.name} melhorada para o nível ${v.level}: capacidade ${v.capacity}, velocidade ${v.speed.toFixed(2)}x.`);return `${v.name}: capacidade e velocidade melhoradas.`}
 function warehouse(){const l=g("bl");spend(10000);S.cap[l]+=1000;S.infra+=10000;say(`Armazém de ${l} ampliado em 1000 un.`);return "Armazém ampliado."}
 function logi(){spend(5000);S.logCap+=1000;S.infra+=5000;say("Capacidade logística ampliada em 1000 un.");return "Capacidade logística ampliada."}
 function rule(r){const m=E(r.l,r.p),st=S.inv[r.l][r.p];
@@ -147,19 +156,19 @@ function fin(){let inv=0;L.forEach(l=>P.forEach(p=>inv+=S.inv[l][p]*E(l,p).price
  return{cash:S.cash,assets,rv,cs,pr:rv-cs,val:S.cash+assets}}
 function advance(h){const T={};while(h>1e-9){const dt=Math.min(.25,h);h-=dt;const ph=Math.floor(S.t);S.t+=dt;
   S.rules.forEach(r=>{if(!r.on||(r.last!==null&&S.t-r.last<1-1e-9))return;r.last=S.t;try{r.st=rule(r)}catch(x){r.st="Falhou: "+x.message}});
-  S.fac.forEach(f=>{const sp=SPEC[f.k],loc=f.loc;let a=0,p;
-   if(f.k==="mine"){a=Math.min(sp.rate*dt,free(loc));if(a>1e-9)S.inv[loc].ore+=a;p="ore"}
-   else if(f.k==="refinery"){const i=Math.min(sp.rate*dt,S.inv[loc].ore);if(i>1e-9){S.inv[loc].ore-=i;a=i*.8;S.inv[loc].ref+=a}p="ref"}
-   else if(f.k==="factory"){const i=Math.min(sp.rate*10*dt,S.inv[loc].ref);if(i>1e-9){S.inv[loc].ref-=i;a=i/10;S.inv[loc].comp+=a}p="comp"}
-   else if(f.k==="copperMine"){a=Math.min(sp.rate*dt,free(loc));if(a>1e-9)S.inv[loc].copper+=a;p="copper"}
-   else if(f.k==="silicaExtractor"){a=Math.min(sp.rate*dt,free(loc));if(a>1e-9)S.inv[loc].silica+=a;p="silica"}
-   else if(f.k==="fuelPlant"){const i=Math.min(sp.rate*2*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
+  S.fac.forEach(f=>{const sp=SPEC[f.k],loc=f.loc;let a=0,p;const lvl=f.level||1,mul=1+.25*(lvl-1);
+   if(f.k==="mine"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].ore+=a;p="ore"}
+   else if(f.k==="refinery"){const i=Math.min(sp.rate*mul*dt,S.inv[loc].ore);if(i>1e-9){S.inv[loc].ore-=i;a=i*.8;S.inv[loc].ref+=a}p="ref"}
+   else if(f.k==="factory"){const i=Math.min(sp.rate*10*mul*dt,S.inv[loc].ref);if(i>1e-9){S.inv[loc].ref-=i;a=i/10;S.inv[loc].comp+=a}p="comp"}
+   else if(f.k==="copperMine"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].copper+=a;p="copper"}
+   else if(f.k==="silicaExtractor"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].silica+=a;p="silica"}
+   else if(f.k==="fuelPlant"){const i=Math.min(sp.rate*2*mul*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
    if(a>1e-9){f.prod+=a;S.prod[p]+=a;(T[f.id]=T[f.id]||{f,p,a:0}).a+=a}});
   S.tr.slice().forEach(t=>{if(S.t+1e-9>=t.eta&&free(t.d)+1e-9>=t.q){S.inv[t.d][t.p]+=t.q;S.tr.splice(S.tr.indexOf(t),1);say(`Transporte ${t.o} → ${t.d} concluído: ${t.q} ${PN[t.p].toLowerCase()} entregues.`)}});
   Object.values(S.mk).forEach(m=>{m.mult+=(1-m.mult)*Math.min(1,.03*dt)+gauss()*.02*Math.sqrt(dt);
    if(Math.random()<.01*dt){const f=Math.random()<.5?1.6:.6;m.mult*=f;say(`Demanda por ${PN[m.p].toLowerCase()} em ${m.l} ${f>1?"disparou":"despencou"}.`)}
    m.mult=Math.min(Math.max(m.mult,.4),2.5);m.stock=Math.max(0,m.stock+m.bd*Math.pow(m.price/m.base,1.5)*dt-Math.min(m.stock,dem(m)*dt));const target=pf(m);m.price+=(target-m.price)*Math.min(1,.5*dt)});
-  const c=(S.fac.reduce((a,f)=>a+SPEC[f.k].up,0)+S.rules.filter(r=>r.on).length*15)*dt;S.cash-=c;rec(0,c);
+  const c=(S.fac.reduce((a,f)=>a+SPEC[f.k].up*(1+.2*((f.level||1)-1)),0)+S.rules.filter(r=>r.on).length*15)*dt;S.cash-=c;rec(0,c);
   if(Math.floor(S.t)>ph){Object.values(S.mk).forEach(m=>{m.hist.push([Math.floor(S.t),m.price]);if(m.hist.length>25)m.hist.shift()});const f=fin();S.hist.push([Math.floor(S.t),f.cash,f.val]);if(S.hist.length>600)S.hist.shift()}}
  Object.values(T).forEach(x=>say(`${SPEC[x.f.k].n} em ${x.f.loc} ${({mine:"produziu",refinery:"refinou",factory:"fabricou",copperMine:"produziu",silicaExtractor:"produziu",fuelPlant:"produziu"})[x.f.k]} ${Math.round(x.a)} ${PN[x.p].toLowerCase()}.`))}
 
@@ -188,7 +197,7 @@ function pick(l){sel=l;$("bl").value=l;render()}
 function setTab(i){tab=i;for(let j=0;j<4;j++)$("v"+j).classList.toggle("on",j===i);render()}
 function tr(l,p,sl,v){act(()=>{const m=E(l,p);if(sl){let q=Math.floor(S.inv[l][p]*v);if(q<1)throw Error("Você não tem nada para vender aqui.");q=Math.min(q,Math.floor(tgt(m)*3-m.stock));if(q<1)throw Error("Mercado saturado. Tente outro planeta!");return`Vendeu ${q} ${PN[p]} por ${money(sell(l,p,q))}`}
  const q=Math.min(v,Math.floor(free(l)),Math.floor(m.stock-1));if(q<1)throw Error("Sem espaço no armazém ou sem oferta.");return`Comprou ${q} ${PN[p]} por ${money(buy(l,p,q))}`})}
-function sendQ(n){act(()=>{const l=sel,p=X.p,d=X.d;let q=n==="max"?Math.floor(Math.min(S.inv[l][p],S.logCap-inTransit(),free(d)-incoming(d))):n;if(q<1)throw Error("Nada a enviar (estoque, logística ou espaço no destino).");ship(l,d,p,q);return`🚀 ${q} ${PN[p]} a caminho de ${d}`})}
+function sendQ(n){act(()=>{const l=sel,p=X.p,d=X.d;let q=n==="max"?Math.floor(Math.min(S.inv[l][p],S.logCap-inTransit(),free(d)-incoming(d),maxShipCapacity())):n;if(q<1)throw Error("Nada a enviar (estoque, logística ou espaço no destino).");ship(l,d,p,q);return`🚀 ${q} ${PN[p]} a caminho de ${d}`})}
 const ruleText=r=>({sell:`Vender ${PN[r.p]} em ${r.l} se preço ≥ ₡${r.th}, guardando ${r.res} (lotes de ${r.b})`,buy:`Comprar ${PN[r.p]} em ${r.l} se preço ≤ ₡${r.th}, até ${r.res} em estoque (lotes de ${r.b})`,transport:`Enviar lotes de ${r.b} ${PN[r.p]}: ${r.l} → ${r.d}, guardando ${r.res} na origem`}[r.k]);
 function rl(id,rm){const r=S.rules.find(x=>x.id===id);if(rm)S.rules.splice(S.rules.indexOf(r),1);else{r.on=!r.on;r.st=r.on?"Aguardando":"Pausado"}render()}
 function hint(){const k=g("ak"),l=g("al"),p=PN[g("ap")],t=g("at"),r=g("ar"),b=g("ab");
@@ -207,14 +216,18 @@ function card(l,p){const m=E(l,p),pc=(m.price/m.base-1)*100,have=S.inv[l][p],cv=
  <div class="rc"><span class="chip">Oferta: ${mm.supply.toFixed(1)}/h</span><span class="chip">Demanda: ${mm.demand.toFixed(1)}/h</span><b style="color:${stateColor}">${mm.state}</b></div>
  <small>Oferta e demanda movem o estoque; o preço se ajusta gradualmente. A tendência compara o preço atual com o histórico recente.</small>
  <div class="bt"><span>Vender</span>${[.1,.5,1].map(f=>`<button onclick="tr('${l}','${p}',1,${f})">${f<1?f*100+"%":"Tudo"}</button>`).join("")}<span>Comprar</span>${[100,500].map(n=>`<button onclick="tr('${l}','${p}',0,${n})">+${n}</button>`).join("")}</div></div>`}
-function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x=>x!==l);if(!dests.includes(X.d))X.d=dests[0];const[rc,rh]=rt(l,X.d);
+function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x=>x!==l);if(!dests.includes(X.d))X.d=dests[0];const[rc,baseRh]=rt(l,X.d),rh=baseRh/Math.max(.1,...S.ships.map(v=>v.speed));
  const fs=S.fac.filter(f=>f.loc===l).map(f=>{let st="Produzindo",ok=1;if(["mine","copperMine","silicaExtractor"].includes(f.k)&&free(l)<1){st="Armazém cheio";ok=0}if(["refinery","fuelPlant"].includes(f.k)&&S.inv[l].ore<1){st="Sem minério";ok=0}if(f.k==="factory"&&S.inv[l].ref<1){st="Sem ferro refinado";ok=0}
-  return`<div class="fc ${ok?"run":"idle"}"><span class="ic">${FI[f.k]}</span><div><b>${SPEC[f.k].n}</b><small>${SPEC[f.k].rc} · ${SPEC[f.k].rate}/h</small></div><em>${st}</em></div>`}).join("")||"<small>Nenhuma instalação aqui.</small>";
+  const lvl=f.level||1,up=facUpgradeCost(f),btn=lvl>=5?"Nível máximo":`<button ${S.cash<up?"disabled":""} onclick="act(()=>upgradeFacility(${f.id}))">⬆ Melhorar · ${money(up)}</button>`;
+  return`<div class="fc ${ok?"run":"idle"}"><span class="ic">${FI[f.k]}</span><div><b>${SPEC[f.k].n} · Nv. ${lvl}</b><small>${SPEC[f.k].rc} · ${Math.round(SPEC[f.k].rate*(1+.25*(lvl-1)))} un./h · custo operacional ${money(SPEC[f.k].up*(1+.2*(lvl-1)))}/h</small></div><em>${st}</em>${btn}</div>`}).join("")||"<small>Nenhuma instalação aqui.</small>";
+ const fleet=S.ships.map(v=>{const busy=S.tr.some(t=>t.shipId===v.id&&t.eta>S.t),up=shipUpgradeCost(v);return`<div class="fc ${busy?"idle":"run"}"><span class="ic">🚀</span><div><b>${v.name} · Nv. ${v.level||1}</b><small>Capacidade ${v.capacity.toLocaleString("pt-BR")} un. · velocidade ${v.speed.toFixed(2)}x</small></div><em>${busy?"Em viagem":"Disponível"}</em>${(v.level||1)>=5?"Nível máximo":`<button ${busy||S.cash<up?"disabled":""} onclick="act(()=>upgradeShip(${v.id}))">⬆ Melhorar · ${money(up)}</button>`}</div>`}).join("");
+ const shipShop=Object.entries(SHIP_TYPES).map(([k,v])=>`<button ${S.cash<v.cost?"disabled":""} onclick="act(()=>buyShip(${JSON.stringify(k)}))">🚀 ${v.name}<b>${money(v.cost)}</b><small>${v.capacity.toLocaleString("pt-BR")} un. · ${v.speed.toFixed(2)}x velocidade</small></button>`).join("");
  const shop=[["🏭 Refinaria",5000,"build('refinery')","50 minério/h → 40 ferro/h"],["⚙️ Fábrica",15000,"build('factory')","40 ferro/h → 4 componentes/h"],["⛏️ Mina de ferro",20000,"build('mine')","+100 minério/h"],["🟠 Mina de cobre",18000,"build('copperMine')","+35 cobre/h"],["🔷 Extratora de silício",12000,"build('silicaExtractor')","+60 silício/h"],["⛽ Usina de combustível",22000,"build('fuelPlant')","20 minério/h → 10 combustível/h"],["📦 Armazém",10000,"warehouse()","+1.000 de espaço"],["🚛 Logística",5000,"logi()","+1.000 em trânsito"]]
   .map(([n,c,f,d])=>`<button ${S.cash<c?"disabled":""} onclick="act(()=>${f})">${n}<b>${money(c)}</b><small>${d}</small></button>`).join("");
  return`<h2>${l}</h2><small>${DESC[l]}</small><div style="margin-top:6px"><small>📦 Armazém ${Math.round(u)}/${S.cap[l]}</small><div class="pg"><i style="width:${u/S.cap[l]*100}%"></i></div></div>
  <h3>Mercado</h3><small>Barra cheia = mercado saturado (preço cai). Barra vazia = escassez (preço sobe).</small>${P.map(p=>card(l,p)).join("")}
- <h3>Instalações</h3>${fs}<h3>Construir em ${l}</h3><div class="shop">${shop}</div>
+ <h3>Instalações e melhorias</h3>${fs}<h3>Construir em ${l}</h3><div class="shop">${shop}</div>
+ <h3>🚀 Frota</h3><small>Uma nave só pode transportar uma carga por vez. Melhorias aumentam capacidade em 25% e velocidade em 0,12x por nível; nível máximo 5.</small>${fleet}<h3>Comprar nave</h3><div class="shop">${shipShop}</div>
  <h3>🚀 Enviar carga de ${l}</h3><div class="seg">${P.map(p=>`<button class="${X.p===p?"on":""}" onclick="X.p='${p}';render()">${ICON[p]}</button>`).join("")}</div><div class="seg">${dests.map(d=>`<button class="${X.d===d?"on":""}" onclick="X.d='${d}';render()">→ ${d}</button>`).join("")}</div>
  <br><small>Frete ₡${rc}/un · ${rh}h de viagem · logística livre: ${Math.floor(S.logCap-inTransit())} un.</small><div class="bt"><span>Enviar</span>${[100,500].map(n=>`<button onclick="sendQ(${n})">${n}</button>`).join("")}<button onclick="sendQ('max')">Máx</button></div>`}
 function render(){const f=fin();
