@@ -16,6 +16,10 @@ python scripts/validate_html.py
 
 Essas verificações não substituem os testes manuais das mecânicas do jogo.
 
-## Hospedagem e acesso
+## Teste online com GitHub Pages
 
-O repositório atual é público. GitHub Pages para um repositório público também disponibiliza o jogo publicamente; um link difícil de adivinhar não é controle de acesso. A publicação em Pages deve ser habilitada somente depois de decidir se uma versão pública atende ao teste ou se será necessário um serviço com autenticação.
+O workflow `.github/workflows/deploy-pages.yml` publica o conteúdo estático da raiz do repositório quando há push em `main`, ou quando o workflow é acionado manualmente. Para que a publicação funcione, em **Settings → Pages**, selecione **GitHub Actions** como origem de build/deploy, caso ainda não esteja configurado.
+
+A URL esperada do projeto é `https://iceedy.github.io/industrial_frontier1.0/`, depois que a primeira implantação terminar com sucesso.
+
+**Atenção:** este repositório é público. O jogo e os arquivos publicados serão acessíveis publicamente; um link difícil de adivinhar não restringe o acesso. O deploy não deve ser confundido com teste de gameplay: após a publicação, valide manualmente as ações no navegador e reporte os erros antes de avançarmos nas mecânicas.
