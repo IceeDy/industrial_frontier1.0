@@ -44,6 +44,7 @@ h3{margin:14px 0 4px;font-size:13px;letter-spacing:.05em;text-transform:uppercas
 .ev{padding:5px 2px;border-bottom:1px solid var(--bd)}.ev small{margin-right:8px}
 .planet-tabs,.panel-tabs,.journal-filters{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.planet-tabs button{flex:1;min-width:75px}.panel-tabs button,.journal-filters button{white-space:nowrap}
 .building-group{background:var(--p);border:1px solid var(--bd);border-radius:10px;margin:8px 0;overflow:hidden}.building-group summary{padding:10px 12px;background:var(--p2);font-weight:700;cursor:pointer}.facility-list{padding:0 8px 8px}
+.material-grid{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}.material-card{display:flex;flex-direction:column;gap:5px;background:var(--p);border:1px solid var(--bd);border-radius:10px;padding:10px 12px}.material-card.warning{border-color:var(--er)}.material-card.caution{border-color:var(--gold)}.material-title{display:flex;gap:7px;align-items:center}.material-card strong{font-size:20px}.material-card small{color:var(--mut)}
 .journal-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.journal-filters{position:sticky;top:0;z-index:2;background:var(--bg);padding:6px 0}.journal-list{display:grid;gap:8px}.journal-event{background:var(--p);border:1px solid var(--bd);border-left:4px solid var(--ac);border-radius:10px;padding:10px 12px}.journal-event.warning{border-left-color:var(--er)}.journal-event.production{border-left-color:var(--ok)}.journal-event.market{border-left-color:var(--gold)}.journal-event.logistics{border-left-color:#6fc0ff}.journal-event.finance{border-left-color:#a78bfa}.event-meta{display:flex;gap:10px;align-items:center;margin-bottom:4px}.event-meta time{font-size:12px;color:var(--mut)}.event-tag{font-size:10px;letter-spacing:.06em;font-weight:800;color:var(--mut)}.journal-empty{padding:18px;background:var(--p);border:1px dashed var(--bd);border-radius:10px;color:var(--mut)}
 #tt{position:fixed;right:10px;top:calc(10px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:6px;z-index:9;max-width:min(340px,90vw)}
 .to{background:var(--p);border:1px solid var(--bd);border-left:4px solid var(--ac);border-radius:8px;padding:8px 12px;box-shadow:0 6px 20px #0006;animation:in .2s}.to.ok{border-left-color:var(--ok)}.to.err{border-left-color:var(--er)}
@@ -217,20 +218,20 @@ function fin(){let inv=0;L.forEach(l=>P.forEach(p=>inv+=S.inv[l][p]*E(l,p).price
  return{cash:S.cash,assets,inv,cargo,fixed,rv,cs,purchases,freight,op,pr:rv-cs,val:S.cash+assets,liquidity:(S.cash/Math.max(1,S.cash+assets))*100}}
 function advance(h){S.prodLog=S.prodLog||{};while(h>1e-9){const dt=Math.min(.05,h);h-=dt;const ph=Math.floor(S.t);S.t+=dt;
   S.rules.forEach(r=>{const interval=(r.k==="smartTrade"||r.k==="smartTransport") ? 0.1 : 1;if(!r.on||(r.last!==null&&S.t-r.last<interval-1e-9))return;r.last=S.t;try{r.st=rule(r)}catch(x){r.st="Falhou: "+x.message}});
-  S.fac.forEach(f=>{const sp=SPEC[f.k],loc=f.loc;let a=0,p;const lvl=f.level||1,mul=1+.25*(lvl-1);const reason=facilityBlockReason(f),nextState=reason?"blocked":"running";if(f._runState!==nextState){if(f._runState!==undefined||reason)say(reason?`${sp.n} em ${loc} parou: ${reason}.`:`${sp.n} em ${loc} retomou a produção.`,reason?"warning":"production");f._runState=nextState;}
+  S.fac.forEach(f=>{const sp=SPEC[f.k],loc=f.loc;let a=0,p,usedInputs={};const lvl=f.level||1,mul=1+.25*(lvl-1);const reason=facilityBlockReason(f),nextState=reason?"blocked":"running";if(f._runState!==nextState){if(f._runState!==undefined||reason)say(reason?`${sp.n} em ${loc} parou: ${reason}.`:`${sp.n} em ${loc} retomou a produção.`,reason?"warning":"production");f._runState=nextState;}
    if(f.k==="mine"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].ore+=a;p="ore"}
-   else if(RECIPES[sp.recipe]){const recipe=RECIPES[sp.recipe],out=Math.min(sp.rate*recipe.factor*mul*dt,...Object.entries(recipe.inputs).map(([material,qty])=>S.inv[loc][material]/qty));if(out>1e-9){Object.entries(recipe.inputs).forEach(([material,qty])=>S.inv[loc][material]-=out*qty);a=out;S.inv[loc][recipe.output]+=out}p=recipe.output}
+   else if(RECIPES[sp.recipe]){const recipe=RECIPES[sp.recipe],out=Math.min(sp.rate*recipe.factor*mul*dt,...Object.entries(recipe.inputs).map(([material,qty])=>S.inv[loc][material]/qty));if(out>1e-9){Object.entries(recipe.inputs).forEach(([material,qty])=>{usedInputs[material]=out*qty;S.inv[loc][material]-=out*qty});a=out;S.inv[loc][recipe.output]+=out}p=recipe.output}
    else if(f.k==="copperMine"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].copper+=a;p="copper"}
    else if(f.k==="silicaExtractor"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].silica+=a;p="silica"}
    else if(f.k==="fuelPlant"){const i=Math.min(sp.rate*2*mul*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
-   if(a>1e-9){f.prod+=a;S.prod[p]+=a;const key=String(f.id);if(!S.prodLog[key])S.prodLog[key]={id:f.id,k:f.k,loc:f.loc,p,a:0};S.prodLog[key].a+=a}});
+   if(a>1e-9){f.prod+=a;S.prod[p]+=a;const key=String(f.id);if(!S.prodLog[key])S.prodLog[key]={id:f.id,k:f.k,loc:f.loc,p,a:0,inputs:{}};S.prodLog[key].a+=a;Object.entries(usedInputs).forEach(([material,q])=>S.prodLog[key].inputs[material]=(S.prodLog[key].inputs[material]||0)+q)}});
   S.tr.slice().forEach(t=>{if(S.t+1e-9>=t.eta&&free(t.d)+1e-9>=t.q){S.inv[t.d][t.p]+=t.q;S.tr.splice(S.tr.indexOf(t),1);say(`Transporte ${t.o} → ${t.d} concluído: ${t.q} ${PN[t.p].toLowerCase()} entregues.`)}});
   const offtakeQty=consumeCompanyStock(dt);
   Object.values(S.mk).forEach(m=>{m.mult+=(1-m.mult)*Math.min(1,.03*dt)+gauss()*.02*Math.sqrt(dt);
    if(Math.random()<.01*dt){const f=Math.random()<.5?1.6:.6;m.mult*=f;say(`Demanda por ${PN[m.p].toLowerCase()} em ${m.l} ${f>1?"disparou":"despencou"}.`)}
    m.mult=Math.min(Math.max(m.mult,.4),2.5);m.stock=Math.max(0,m.stock+m.bd*Math.pow(m.price/m.base,1.5)*dt-Math.min(m.stock,Math.max(0,dem(m)-(offtakeQty[m.l+m.p]||0)/Math.max(dt,1e-9))*dt));const target=pf(m);m.price+=(target-m.price)*Math.min(1,.5*dt)});
   const c=S.fac.reduce((a,f)=>a+SPEC[f.k].up*(1+.2*((f.level||1)-1))*(facilityBlockReason(f)?.15:1),0)*dt+S.rules.filter(r=>r.on).length*15*dt;S.cash-=c;rec(0,c);
-  if(Math.floor(S.t)>ph){Object.values(S.mk).forEach(m=>{m.hist.push([Math.floor(S.t),m.price]);if(m.hist.length>25)m.hist.shift()});Object.values(S.prodLog).forEach(x=>{if(x.a>=1)say(`${SPEC[x.k].n} em ${x.loc}: produziu ${x.a.toFixed(1)} ${PN[x.p].toLowerCase()} na última hora.`,"production")});S.prodLog={};const f=fin();S.hist.push([Math.floor(S.t),f.cash,f.val,f.rv,f.cs,f.pr,f.inv+f.cargo,f.purchases,f.freight,f.op]);if(S.hist.length>600)S.hist.shift()}}}
+  if(Math.floor(S.t)>ph){Object.values(S.mk).forEach(m=>{m.hist.push([Math.floor(S.t),m.price]);if(m.hist.length>25)m.hist.shift()});Object.values(S.prodLog).forEach(x=>{if(x.a>=1){const inputs=Object.entries(x.inputs||{}).filter(([,q])=>q>0.01).map(([p,q])=>`${q.toFixed(1)} ${PN[p].toLowerCase()}`);const detail=inputs.length? ` Insumos consumidos: ${inputs.join(", ")}.`:"";say(`${SPEC[x.k].n} em ${x.loc}: produziu ${x.a.toFixed(1)} ${PN[x.p].toLowerCase()} na última hora.${detail}`,"production")}});S.prodLog={};const f=fin();S.hist.push([Math.floor(S.t),f.cash,f.val,f.rv,f.cs,f.pr,f.inv+f.cargo,f.purchases,f.freight,f.op]);if(S.hist.length>600)S.hist.shift()}}}
 
 const ICON={ore:"🪨",ref:"🔩",comp:"⚙️",copper:"🟠",silica:"🔷",fuel:"⛽"},FI={mine:"⛏️",refinery:"🏭",factory:"⚙️",copperMine:"🪓",silicaExtractor:"🔷",fuelPlant:"⛽"};
 const POS={Terra:[100,160],Lua:[300,58],Marte:[500,175]};
@@ -278,6 +279,28 @@ function card(l,p){const m=E(l,p),pc=(m.price/m.base-1)*100,have=S.inv[l][p],cv=
  <div class="rc"><span class="chip">Oferta: ${mm.supply.toFixed(1)}/h</span><span class="chip">Demanda: ${mm.demand.toFixed(1)}/h</span><b style="color:${stateColor}">${mm.state}</b></div>
  <small>Oferta e demanda movem o estoque; o preço se ajusta gradualmente. A tendência compara o preço atual com o histórico recente.</small>
  <div class="bt"><span>Vender</span>${[.1,.5,1].map(f=>`<button onclick="tr('${l}','${p}',1,${f})">${f<1?f*100+"%":"Tudo"}</button>`).join("")}<span>Comprar</span>${[100,500].map(n=>`<button onclick="tr('${l}','${p}',0,${n})">+${n}</button>`).join("")}</div></div>`}
+function materialFlowPanel(l){
+ const flows=Object.fromEntries(P.map(p=>[p,{prod:0,use:0}]));
+ S.fac.filter(f=>f.loc===l).forEach(f=>{
+  const sp=SPEC[f.k],mul=1+.25*((f.level||1)-1),recipe=RECIPES[sp.recipe];
+  if(recipe){
+   const out=sp.rate*recipe.factor*mul;
+   flows[recipe.output].prod+=out;
+   Object.entries(recipe.inputs).forEach(([p,q])=>flows[p].use+=out*q);
+  }else{
+   const output={mine:"ore",copperMine:"copper",silicaExtractor:"silica"}[f.k];
+   if(output)flows[output].prod+=sp.rate*mul;
+  }
+ });
+ return `<div class="grid material-grid">${P.map(p=>{
+  const x=flows[p],stock=S.inv[l][p],net=x.prod-x.use;
+  const coverage=net<-.001?stock/(-net):Infinity;
+  const status=net<-.001&&coverage<2?"warning":net<-.001&&coverage<6?"caution":"";
+  const netText=(net>=0?"+":"−")+Math.abs(net).toLocaleString("pt-BR",{maximumFractionDigits:1})+" un./h";
+  const coverageText=Number.isFinite(coverage)?(coverage<.1?"menos de 0,1 h":coverage.toFixed(1)+" h"):"estoque não está caindo pela produção local";
+  return `<article class="material-card ${status}"><div class="material-title"><span>${ICON[p]}</span><b>${PN[p]}</b></div><strong>${Math.floor(stock).toLocaleString("pt-BR")} un.</strong><small>Produção: +${x.prod.toLocaleString("pt-BR",{maximumFractionDigits:1})}/h</small><small>Consumo industrial: −${x.use.toLocaleString("pt-BR",{maximumFractionDigits:1})}/h</small><small>Saldo previsto: ${netText}</small><small>Cobertura pelo saldo atual: ${coverageText}</small></article>`;
+ }).join("")}</div><small>Estimativa com as instalações atuais e seus níveis; não inclui compras, vendas ou cargas em trânsito. O consumo real varia conforme os insumos disponíveis e o espaço do armazém.</small>`;
+}
 function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x=>x!==l);if(!dests.includes(X.d))X.d=dests[0];const[rc,baseRh]=rt(l,X.d),rh=baseRh/Math.max(.1,...S.ships.map(v=>v.speed));
  const fs=S.fac.filter(f=>f.loc===l).map(f=>{const reason=facilityBlockReason(f),st=reason?"Parada: "+reason:"Operando",ok=!reason;
   const lvl=f.level||1,up=facUpgradeCost(f),btn=lvl>=5?"Nível máximo":`<button ${S.cash<up?"disabled":""} onclick="act(()=>upgradeFacility(${f.id}))">⬆ Melhorar · ${money(up)}</button>`;
@@ -288,6 +311,7 @@ function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x
   .map(([n,c,f,d])=>`<button ${S.cash<c?"disabled":""} onclick="act(()=>${f})">${n}<b>${money(c)}</b><small>${d}</small></button>`).join("");
  return`<h2>${l}</h2><small>${DESC[l]}</small><div style="margin-top:6px"><small>📦 Armazém ${Math.round(u)}/${S.cap[l]} un.</small><div class="pg"><i style="width:${Math.min(100,u/S.cap[l]*100)}%"></i></div><button style="margin-top:8px" ${S.cash<10000?"disabled":""} onclick="act(()=>warehouse())">📦 Ampliar armazém · +1.000 un. · ${money(10000)}</button></div>
  <h3>Mercado</h3><small>Barra cheia = mercado saturado (preço cai). Barra vazia = escassez (preço sobe).</small>${P.map(p=>card(l,p)).join("")}
+ <h3>Materiais e consumo</h3>${materialFlowPanel(l)}
  <h3>Instalações e melhorias</h3>${fs}<h3>Construir em ${l}</h3><div class="shop">${shop}</div>
  <h3>🚀 Frota</h3><small>Uma nave só pode transportar uma carga por vez. Melhorias aumentam capacidade em 25% e velocidade em 0,12x por nível; nível máximo 5.</small>${fleet}<h3>Comprar nave</h3><div class="shop">${shipShop}</div>
  <h3>Capacidade logística</h3><small>${Math.floor(S.logCap-inTransit()).toLocaleString("pt-BR")} un. livres de ${S.logCap.toLocaleString("pt-BR")} un. totais; cargas em trânsito ocupam capacidade até a entrega.</small><button style="margin:8px 0 14px" ${S.cash<5000?"disabled":""} onclick="act(()=>logi())">📦 Expandir capacidade logística · +1.000 un. · ${money(5000)}</button>
@@ -295,9 +319,9 @@ function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x
  <br><small>Frete ₡${rc}/un · ${rh}h de viagem · logística livre: ${Math.floor(S.logCap-inTransit())} un.</small><div class="bt"><span>Enviar</span>${[100,500].map(n=>`<button onclick="sendQ(${n})">${n}</button>`).join("")}<button onclick="sendQ('max')">Máx</button></div>`}
 function layoutPlanetPanel(){const root=$("pn");if(!root)return;
  if(!root.querySelector(".planet-tabs")){const planets=document.createElement("div");planets.className="planet-tabs";planets.innerHTML=L.map(w=>`<button class="${w===sel?"on":""}" onclick="pick('${w}')">${w}</button>`).join("");root.insertBefore(planets,root.firstChild);
-  const progress=root.querySelector(".pg");if(progress){const nav=document.createElement("div");nav.className="panel-tabs";nav.innerHTML=[["market","📊 Mercado"],["facilities","🏭 Instalações"],["build","🔨 Construir"],["logistics","🚀 Logística"]].map(([k,n])=>`<button class="${panelTab===k?"on":""}" onclick="setPanelTab('${k}')">${n}</button>`).join("");progress.parentElement.after(nav);}
+  const progress=root.querySelector(".pg");if(progress){const nav=document.createElement("div");nav.className="panel-tabs";nav.innerHTML=[["market","📊 Mercado"],["materials","🧱 Materiais"],["facilities","🏭 Instalações"],["build","🔨 Construir"],["logistics","🚀 Logística"]].map(([k,n])=>`<button class="${panelTab===k?"on":""}" onclick="setPanelTab('${k}')">${n}</button>`).join("");progress.parentElement.after(nav);}
  }
- const titles=[["Mercado","market"],["Instalações e melhorias","facilities"],["Construir em","build"],["🚀 Frota","logistics"]];
+ const titles=[["Mercado","market"],["Materiais e consumo","materials"],["Instalações e melhorias","facilities"],["Construir em","build"],["🚀 Frota","logistics"]];
  for(let i=0;i<titles.length;i++){const [title,key]=titles[i];const heading=[...root.querySelectorAll("h3")].find(h=>h.textContent.startsWith(title));if(!heading)continue;if(heading.parentElement?.dataset.panelSection===key)continue;const section=document.createElement("section");section.dataset.panelSection=key;heading.before(section);let node=heading;const nextTitle=titles[i+1]?.[0];while(node){if(node!==heading&&node.tagName==="H3"&&nextTitle&&node.textContent.startsWith(nextTitle))break;const next=node.nextSibling;section.appendChild(node);node=next;}}
  const fs=root.querySelector('[data-panel-section="facilities"]');if(fs&&!fs.dataset.grouped){const cards=[...fs.querySelectorAll('.fc[data-kind]')];const byType=document.createElement("div");byType.className="facility-groups";if(cards.length)cards[0].before(byType);for(const k of Object.keys(SPEC)){const group=cards.filter(c=>c.dataset.kind===k);if(!group.length)continue;const d=document.createElement("details");d.className="building-group";d.open=true;const summary=document.createElement("summary");summary.textContent=FI[k]+" "+SPEC[k].n+" · "+group.length+" unidade(s)";d.appendChild(summary);const list=document.createElement("div");list.className="facility-list";group.forEach(c=>list.appendChild(c));d.appendChild(list);byType.appendChild(d);}if(cards.length){fs.dataset.grouped="1";}}
  root.querySelectorAll("[data-panel-section]").forEach(el=>el.hidden=el.dataset.panelSection!==panelTab);
