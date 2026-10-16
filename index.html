@@ -105,6 +105,12 @@ const E=(l,p)=>S.mk[l+p],dem=m=>m.bd*m.mult,tgt=m=>dem(m)*24;
 const free=l=>S.cap[l]-P.reduce((a,p)=>a+S.inv[l][p],0);
 const rec=(r,c)=>{S.led.push([S.t,r,c]);S.led=S.led.filter(x=>x[0]>=S.t-24)};
 const pf=(m,s=m.stock)=>m.base*Math.min(Math.max(Math.pow(Math.max(s,1)/tgt(m),-.6),.3),3);
+function marketMetrics(m){
+ const demand=dem(m),supply=m.bd*Math.pow(Math.max(m.price/m.base,.1),1.5);
+ const coverage=demand>0?m.stock/demand:0,ratio=m.stock/tgt(m);
+ const state=ratio<.55?"Escassez":ratio>1.6?"Excesso de oferta":"Equilibrado";
+ return{demand,supply,coverage,ratio,state};
+}
 function mv(m,b){const pc=(m.price/b-1)*100;if(Math.abs(pc)>=1)say(`Preço de ${PN[m.p].toLowerCase()} em ${m.l} ${pc>0?"subiu":"caiu"} ${Math.abs(pc).toFixed(0)}%.`)}
 function sell(l,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.");const m=E(l,p);
  if(q>S.inv[l][p]+1e-9)throw Error(`Estoque insuficiente em ${l}: ${Math.floor(S.inv[l][p])} un.`);
@@ -190,9 +196,12 @@ function mapSvg(){let s=`<defs>${L.map(l=>`<radialGradient id="g${l}" cx="35%" c
  L.forEach(l=>{const[x,y]=POS[l],n=k=>S.fac.filter(f=>f.loc===l&&f.k===k).length,u=P.reduce((a,p)=>a+S.inv[l][p],0);
   s+=`<g class="pl${l===sel?" on":""}" onclick="pick('${l}')"><circle cx="${x}" cy="${y}" r="44" fill="url(#g${l})"/><text class="pn" x="${x}" y="${y+66}">${l}</text><text class="pb" x="${x}" y="${y+84}">${["mine","refinery","factory"].map(k=>n(k)?FI[k]+n(k)+" ":"").join("")}📦 ${Math.round(u)}/${S.cap[l]}</text></g>`});
  S.tr.forEach(t=>{const p=Math.min(1,(S.t-t.s)/(t.eta-t.s)),[x1,y1]=POS[t.o],[x2,y2]=POS[t.d];s+=`<text class="sh" x="${(x1+(x2-x1)*p).toFixed(1)}" y="${(y1+(y2-y1)*p).toFixed(1)}">🚀</text>`});return s}
-function card(l,p){const m=E(l,p),pc=(m.price/m.base-1)*100,have=S.inv[l][p],cv=Math.min(100,m.stock/tgt(m)*50);
+function card(l,p){const m=E(l,p),pc=(m.price/m.base-1)*100,have=S.inv[l][p],cv=Math.min(100,m.stock/tgt(m)*50),mm=marketMetrics(m);
+ const stateColor=mm.state==="Escassez"?"var(--er)":mm.state==="Excesso de oferta"?"var(--ok)":"var(--ac)";
  return`<div class="pc"><div class="ph"><span class="ic">${ICON[p]}</span><div><b>${PN[p]}</b><small>Você tem ${Math.floor(have)}</small></div><div class="pr ${pc>=0?"up":"dn"}">₡${m.price.toFixed(1)}<small>${pc>=0?"▲":"▼"} ${Math.abs(pc).toFixed(0)}% vs. normal</small></div></div>
- <small>Estoque do mercado: ${Math.round(m.stock)} · consome ${dem(m).toFixed(0)}/h</small><div class="pg"><i style="width:${cv}%;background:${cv>66?"var(--er)":cv<25?"var(--ok)":"var(--ac)"}"></i></div>
+ <small>Estoque do mercado: ${Math.round(m.stock)} un. · cobertura: ${mm.coverage.toFixed(1)}h</small><div class="pg"><i style="width:${cv}%;background:${cv>66?"var(--er)":cv<25?"var(--ok)":"var(--ac)"}"></i></div>
+ <div class="rc"><span class="chip">Oferta: ${mm.supply.toFixed(1)}/h</span><span class="chip">Demanda: ${mm.demand.toFixed(1)}/h</span><b style="color:${stateColor}">${mm.state}</b></div>
+ <small>Oferta cresce quando o preço compensa a produção; a demanda e o estoque disponível pressionam o preço.</small>
  <div class="bt"><span>Vender</span>${[.1,.5,1].map(f=>`<button onclick="tr('${l}','${p}',1,${f})">${f<1?f*100+"%":"Tudo"}</button>`).join("")}<span>Comprar</span>${[100,500].map(n=>`<button onclick="tr('${l}','${p}',0,${n})">+${n}</button>`).join("")}</div></div>`}
 function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x=>x!==l);if(!dests.includes(X.d))X.d=dests[0];const[rc,rh]=rt(l,X.d);
  const fs=S.fac.filter(f=>f.loc===l).map(f=>{let st="Produzindo",ok=1;if(f.k==="mine"&&free(l)<1){st="Armazém cheio";ok=0}if(f.k==="refinery"&&S.inv[l].ore<1){st="Sem minério";ok=0}if(f.k==="factory"&&S.inv[l].ref<1){st="Sem ferro refinado";ok=0}
