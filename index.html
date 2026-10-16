@@ -156,19 +156,19 @@ function fin(){let inv=0;L.forEach(l=>P.forEach(p=>inv+=S.inv[l][p]*E(l,p).price
  return{cash:S.cash,assets,rv,cs,pr:rv-cs,val:S.cash+assets}}
 function advance(h){const T={};while(h>1e-9){const dt=Math.min(.25,h);h-=dt;const ph=Math.floor(S.t);S.t+=dt;
   S.rules.forEach(r=>{if(!r.on||(r.last!==null&&S.t-r.last<1-1e-9))return;r.last=S.t;try{r.st=rule(r)}catch(x){r.st="Falhou: "+x.message}});
-  S.fac.forEach(f=>{const sp=SPEC[f.k],loc=f.loc;let a=0,p;
-   if(f.k==="mine"){a=Math.min(sp.rate*dt,free(loc));if(a>1e-9)S.inv[loc].ore+=a;p="ore"}
-   else if(f.k==="refinery"){const i=Math.min(sp.rate*dt,S.inv[loc].ore);if(i>1e-9){S.inv[loc].ore-=i;a=i*.8;S.inv[loc].ref+=a}p="ref"}
-   else if(f.k==="factory"){const i=Math.min(sp.rate*10*dt,S.inv[loc].ref);if(i>1e-9){S.inv[loc].ref-=i;a=i/10;S.inv[loc].comp+=a}p="comp"}
-   else if(f.k==="copperMine"){a=Math.min(sp.rate*dt,free(loc));if(a>1e-9)S.inv[loc].copper+=a;p="copper"}
-   else if(f.k==="silicaExtractor"){a=Math.min(sp.rate*dt,free(loc));if(a>1e-9)S.inv[loc].silica+=a;p="silica"}
-   else if(f.k==="fuelPlant"){const i=Math.min(sp.rate*2*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
+  S.fac.forEach(f=>{const sp=SPEC[f.k],loc=f.loc;let a=0,p;const lvl=f.level||1,mul=1+.25*(lvl-1);
+   if(f.k==="mine"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].ore+=a;p="ore"}
+   else if(f.k==="refinery"){const i=Math.min(sp.rate*mul*dt,S.inv[loc].ore);if(i>1e-9){S.inv[loc].ore-=i;a=i*.8;S.inv[loc].ref+=a}p="ref"}
+   else if(f.k==="factory"){const i=Math.min(sp.rate*10*mul*dt,S.inv[loc].ref);if(i>1e-9){S.inv[loc].ref-=i;a=i/10;S.inv[loc].comp+=a}p="comp"}
+   else if(f.k==="copperMine"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].copper+=a;p="copper"}
+   else if(f.k==="silicaExtractor"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].silica+=a;p="silica"}
+   else if(f.k==="fuelPlant"){const i=Math.min(sp.rate*2*mul*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
    if(a>1e-9){f.prod+=a;S.prod[p]+=a;(T[f.id]=T[f.id]||{f,p,a:0}).a+=a}});
   S.tr.slice().forEach(t=>{if(S.t+1e-9>=t.eta&&free(t.d)+1e-9>=t.q){S.inv[t.d][t.p]+=t.q;S.tr.splice(S.tr.indexOf(t),1);say(`Transporte ${t.o} → ${t.d} concluído: ${t.q} ${PN[t.p].toLowerCase()} entregues.`)}});
   Object.values(S.mk).forEach(m=>{m.mult+=(1-m.mult)*Math.min(1,.03*dt)+gauss()*.02*Math.sqrt(dt);
    if(Math.random()<.01*dt){const f=Math.random()<.5?1.6:.6;m.mult*=f;say(`Demanda por ${PN[m.p].toLowerCase()} em ${m.l} ${f>1?"disparou":"despencou"}.`)}
    m.mult=Math.min(Math.max(m.mult,.4),2.5);m.stock=Math.max(0,m.stock+m.bd*Math.pow(m.price/m.base,1.5)*dt-Math.min(m.stock,dem(m)*dt));const target=pf(m);m.price+=(target-m.price)*Math.min(1,.5*dt)});
-  const c=(S.fac.reduce((a,f)=>a+SPEC[f.k].up,0)+S.rules.filter(r=>r.on).length*15)*dt;S.cash-=c;rec(0,c);
+  const c=(S.fac.reduce((a,f)=>a+SPEC[f.k].up*(1+.2*((f.level||1)-1)),0)+S.rules.filter(r=>r.on).length*15)*dt;S.cash-=c;rec(0,c);
   if(Math.floor(S.t)>ph){Object.values(S.mk).forEach(m=>{m.hist.push([Math.floor(S.t),m.price]);if(m.hist.length>25)m.hist.shift()});const f=fin();S.hist.push([Math.floor(S.t),f.cash,f.val]);if(S.hist.length>600)S.hist.shift()}}
  Object.values(T).forEach(x=>say(`${SPEC[x.f.k].n} em ${x.f.loc} ${({mine:"produziu",refinery:"refinou",factory:"fabricou",copperMine:"produziu",silicaExtractor:"produziu",fuelPlant:"produziu"})[x.f.k]} ${Math.round(x.a)} ${PN[x.p].toLowerCase()}.`))}
 
@@ -197,7 +197,7 @@ function pick(l){sel=l;$("bl").value=l;render()}
 function setTab(i){tab=i;for(let j=0;j<4;j++)$("v"+j).classList.toggle("on",j===i);render()}
 function tr(l,p,sl,v){act(()=>{const m=E(l,p);if(sl){let q=Math.floor(S.inv[l][p]*v);if(q<1)throw Error("Você não tem nada para vender aqui.");q=Math.min(q,Math.floor(tgt(m)*3-m.stock));if(q<1)throw Error("Mercado saturado. Tente outro planeta!");return`Vendeu ${q} ${PN[p]} por ${money(sell(l,p,q))}`}
  const q=Math.min(v,Math.floor(free(l)),Math.floor(m.stock-1));if(q<1)throw Error("Sem espaço no armazém ou sem oferta.");return`Comprou ${q} ${PN[p]} por ${money(buy(l,p,q))}`})}
-function sendQ(n){act(()=>{const l=sel,p=X.p,d=X.d;let q=n==="max"?Math.floor(Math.min(S.inv[l][p],S.logCap-inTransit(),free(d)-incoming(d))):n;if(q<1)throw Error("Nada a enviar (estoque, logística ou espaço no destino).");ship(l,d,p,q);return`🚀 ${q} ${PN[p]} a caminho de ${d}`})}
+function sendQ(n){act(()=>{const l=sel,p=X.p,d=X.d;let q=n==="max"?Math.floor(Math.min(S.inv[l][p],S.logCap-inTransit(),free(d)-incoming(d),maxShipCapacity())):n;if(q<1)throw Error("Nada a enviar (estoque, logística ou espaço no destino).");ship(l,d,p,q);return`🚀 ${q} ${PN[p]} a caminho de ${d}`})}
 const ruleText=r=>({sell:`Vender ${PN[r.p]} em ${r.l} se preço ≥ ₡${r.th}, guardando ${r.res} (lotes de ${r.b})`,buy:`Comprar ${PN[r.p]} em ${r.l} se preço ≤ ₡${r.th}, até ${r.res} em estoque (lotes de ${r.b})`,transport:`Enviar lotes de ${r.b} ${PN[r.p]}: ${r.l} → ${r.d}, guardando ${r.res} na origem`}[r.k]);
 function rl(id,rm){const r=S.rules.find(x=>x.id===id);if(rm)S.rules.splice(S.rules.indexOf(r),1);else{r.on=!r.on;r.st=r.on?"Aguardando":"Pausado"}render()}
 function hint(){const k=g("ak"),l=g("al"),p=PN[g("ap")],t=g("at"),r=g("ar"),b=g("ab");
@@ -216,9 +216,10 @@ function card(l,p){const m=E(l,p),pc=(m.price/m.base-1)*100,have=S.inv[l][p],cv=
  <div class="rc"><span class="chip">Oferta: ${mm.supply.toFixed(1)}/h</span><span class="chip">Demanda: ${mm.demand.toFixed(1)}/h</span><b style="color:${stateColor}">${mm.state}</b></div>
  <small>Oferta e demanda movem o estoque; o preço se ajusta gradualmente. A tendência compara o preço atual com o histórico recente.</small>
  <div class="bt"><span>Vender</span>${[.1,.5,1].map(f=>`<button onclick="tr('${l}','${p}',1,${f})">${f<1?f*100+"%":"Tudo"}</button>`).join("")}<span>Comprar</span>${[100,500].map(n=>`<button onclick="tr('${l}','${p}',0,${n})">+${n}</button>`).join("")}</div></div>`}
-function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x=>x!==l);if(!dests.includes(X.d))X.d=dests[0];const[rc,rh]=rt(l,X.d);
+function panel(){const l=sel,u=P.reduce((a,p)=>a+S.inv[l][p],0),dests=L.filter(x=>x!==l);if(!dests.includes(X.d))X.d=dests[0];const[rc,baseRh]=rt(l,X.d),rh=baseRh/Math.max(.1,...S.ships.map(v=>v.speed));
  const fs=S.fac.filter(f=>f.loc===l).map(f=>{let st="Produzindo",ok=1;if(["mine","copperMine","silicaExtractor"].includes(f.k)&&free(l)<1){st="Armazém cheio";ok=0}if(["refinery","fuelPlant"].includes(f.k)&&S.inv[l].ore<1){st="Sem minério";ok=0}if(f.k==="factory"&&S.inv[l].ref<1){st="Sem ferro refinado";ok=0}
-  return`<div class="fc ${ok?"run":"idle"}"><span class="ic">${FI[f.k]}</span><div><b>${SPEC[f.k].n}</b><small>${SPEC[f.k].rc} · ${SPEC[f.k].rate}/h</small></div><em>${st}</em></div>`}).join("")||"<small>Nenhuma instalação aqui.</small>";
+  const lvl=f.level||1,up=facUpgradeCost(f),btn=lvl>=5?"Nível máximo":`<button ${S.cash<up?"disabled":""} onclick="act(()=>upgradeFacility(${f.id}))">⬆ Melhorar · ${money(up)}</button>`;
+  return`<div class="fc ${ok?"run":"idle"}"><span class="ic">${FI[f.k]}</span><div><b>${SPEC[f.k].n} · Nv. ${lvl}</b><small>${SPEC[f.k].rc} · ${Math.round(SPEC[f.k].rate*(1+.25*(lvl-1)))} un./h · custo operacional ${money(SPEC[f.k].up*(1+.2*(lvl-1)))}/h</small></div><em>${st}</em>${btn}</div>`}).join("")||"<small>Nenhuma instalação aqui.</small>";
  const shop=[["🏭 Refinaria",5000,"build('refinery')","50 minério/h → 40 ferro/h"],["⚙️ Fábrica",15000,"build('factory')","40 ferro/h → 4 componentes/h"],["⛏️ Mina de ferro",20000,"build('mine')","+100 minério/h"],["🟠 Mina de cobre",18000,"build('copperMine')","+35 cobre/h"],["🔷 Extratora de silício",12000,"build('silicaExtractor')","+60 silício/h"],["⛽ Usina de combustível",22000,"build('fuelPlant')","20 minério/h → 10 combustível/h"],["📦 Armazém",10000,"warehouse()","+1.000 de espaço"],["🚛 Logística",5000,"logi()","+1.000 em trânsito"]]
   .map(([n,c,f,d])=>`<button ${S.cash<c?"disabled":""} onclick="act(()=>${f})">${n}<b>${money(c)}</b><small>${d}</small></button>`).join("");
  return`<h2>${l}</h2><small>${DESC[l]}</small><div style="margin-top:6px"><small>📦 Armazém ${Math.round(u)}/${S.cap[l]}</small><div class="pg"><i style="width:${u/S.cap[l]*100}%"></i></div></div>
