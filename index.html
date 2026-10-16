@@ -49,7 +49,7 @@ h3{margin:14px 0 4px;font-size:13px;letter-spacing:.05em;text-transform:uppercas
 <header id="hud"></header><div id="ms"></div><nav id="nav"></nav>
 <section class="v on" id="v0"><div class="sys"><svg id="map" viewBox="0 0 600 290"></svg></div><div id="pn"></div></section>
 <section class="v" id="v1"><div class="grid" id="co"></div><svg id="ch" viewBox="0 0 600 200" preserveAspectRatio="none"></svg><small>Caixa (azul) e valor da empresa (verde).</small><h3>Produção acumulada</h3><div class="grid" id="pr"></div><div class="row"><button class="on" onclick="saveGame(true)">💾 Salvar agora</button><button onclick="loadGame(true)">↩ Carregar último save</button><small id="saveStatus" class="mut">O jogo salva automaticamente neste navegador.</small></div><button onclick="if(confirm('Reiniciar jogo? O save atual também será apagado.')){init();F={};sel='Marte';X={p:'ore',d:'Terra'};SP=.5;localStorage.removeItem(SAVE_KEY);render();const st=$('saveStatus');if(st)st.textContent='Novo jogo iniciado.'}">↻ Reiniciar jogo</button></section>
-<section class="v" id="v2"><div class="card"><b>Contratar gerente</b> <small>(₡15/h cada. Executa 1x por hora de jogo)</small>
+<section class="v" id="v2"><div class="card"><b>Contratar gerente</b> <small>(₡15/h cada. Gerentes inteligentes reavaliam a cada 6 min de jogo; regras manuais, 1x/h.)</small>
 <div class="row"><label>O que fazer<select id="ak" onchange="hint()"><option value="smartTrade">Comercial inteligente (compra/venda)</option><option value="smartTransport">Logística inteligente (melhor rota)</option><option value="sell">Vender excedente — manual</option><option value="buy">Comprar até um estoque — manual</option><option value="transport">Enviar cargas — manual</option></select></label>
 <label>Onde (origem)<select id="al" onchange="hint()"></select></label><label>Destino<select id="ad" onchange="hint()"></select></label><label>Produto<select id="ap" onchange="hint()"></select></label>
 <label>Preço-limite (₡)<input id="at" type="number" min="0" value="10" style="width:90px" oninput="hint()"></label><label>Estoque a manter / alvo<input id="ar" type="number" min="0" value="0" style="width:100px" oninput="hint()"></label><label>Lote por vez<input id="ab" type="number" min="1" value="200" style="width:90px" oninput="hint()"></label></div>
@@ -145,12 +145,12 @@ function logi(){spend(5000);S.logCap+=1000;S.infra+=5000;say("Capacidade logíst
 function productReserve(l,p){return S.fac.filter(f=>f.loc===l).reduce((a,f)=>a+(p==="ore"&&f.k==="refinery"?SPEC.refinery.rate*(1+.25*((f.level||1)-1)):p==="ore"&&f.k==="fuelPlant"?SPEC.fuelPlant.rate*2*(1+.25*((f.level||1)-1)):p==="ref"&&f.k==="factory"?SPEC.factory.rate*10*(1+.25*((f.level||1)-1)):0),0)}
 function smartTrade(r){const l=r.l;
  const candidates=P.map(p=>({p,m:E(l,p),st:S.inv[l][p],reserve:productReserve(l,p)}));
- const sellable=candidates.filter(x=>x.st-x.reserve>1&&x.m.price>=x.m.base*1.08&&tgt(x.m)*3-x.m.stock>=1).sort((a,b)=>(b.m.price/b.m.base)-(a.m.price/a.m.base));
- if(sellable.length){const x=sellable[0],q=Math.floor(Math.min(x.st-x.reserve,Math.max(1,(x.st-x.reserve)*.35),tgt(x.m)*3-x.m.stock));if(q>0){const rev=sell(l,x.p,q);return`Oportunidade de venda: ${q} ${PN[x.p]} por ${money(rev)} (preço ${money(x.m.price)}).`}}
+ const sellable=candidates.filter(x=>x.st-x.reserve>1&&x.m.price>=x.m.base*1.05&&tgt(x.m)*3-x.m.stock>=1).sort((a,b)=>((b.m.price-b.m.base)/Math.max(1,b.m.base))-((a.m.price-a.m.base)/Math.max(1,a.m.base)));
+ if(sellable.length){const x=sellable[0],q=Math.floor(Math.min(x.st-x.reserve,Math.max(1,(x.st-x.reserve)*.2),tgt(x.m)*3-x.m.stock));if(q>0){const rev=sell(l,x.p,q);return`Oportunidade de venda: ${q} ${PN[x.p]} por ${money(rev)} (preço ${money(x.m.price)}).`}}
  const budget=Math.max(0,S.cash-Math.max(1000,S.cash*.55));
- const buys=candidates.filter(x=>x.m.price<=x.m.base*.82&&x.m.stock>2).sort((a,b)=>(a.m.price/a.m.base)-(b.m.price/b.m.base));
+ const buys=candidates.filter(x=>x.m.price<=x.m.base*.88&&x.m.stock>2).sort((a,b)=>(a.m.price/a.m.base)-(b.m.price/b.m.base));
  if(!buys.length)return"Sem oportunidade: preços fora da faixa de compra/venda.";
- const x=buys[0],q=Math.floor(Math.min(free(l),x.m.stock-1,100,budget/Math.max(1,x.m.price)));
+ const x=buys[0],q=Math.floor(Math.min(free(l),x.m.stock-1,25,budget/Math.max(1,x.m.price)));
  if(q<1)return`Preservando capital de giro: caixa ${money(S.cash)}, reserva mínima ${money(Math.max(1000,S.cash*.55))}.`;
  const cost=buy(l,x.p,q);return`Compra oportunista: ${q} ${PN[x.p]} por ${money(cost)}; reserva de caixa preservada.`
 }
@@ -175,8 +175,8 @@ function fin(){let inv=0;L.forEach(l=>P.forEach(p=>inv+=S.inv[l][p]*E(l,p).price
  const rate=k=>rows.filter(x=>x[3]===k).reduce((a,x)=>a+x[2],0)/w;
  const rv=rows.reduce((a,x)=>a+x[1],0)/w,cs=rows.reduce((a,x)=>a+x[2],0)/w,purchases=rate("purchase"),freight=rate("freight"),op=rows.filter(x=>x[3]==="operating"||!x[3]).reduce((a,x)=>a+x[2],0)/w;
  return{cash:S.cash,assets,inv,cargo,fixed,rv,cs,purchases,freight,op,pr:rv-cs,val:S.cash+assets,liquidity:(S.cash/Math.max(1,S.cash+assets))*100}}
-function advance(h){const T={};while(h>1e-9){const dt=Math.min(.25,h);h-=dt;const ph=Math.floor(S.t);S.t+=dt;
-  S.rules.forEach(r=>{if(!r.on||(r.last!==null&&S.t-r.last<1-1e-9))return;r.last=S.t;try{r.st=rule(r)}catch(x){r.st="Falhou: "+x.message}});
+function advance(h){const T={};while(h>1e-9){const dt=Math.min(.05,h);h-=dt;const ph=Math.floor(S.t);S.t+=dt;
+  S.rules.forEach(r=>{const interval=(r.k==="smartTrade"||r.k==="smartTransport")?.1:1;if(!r.on||(r.last!==null&&S.t-r.last<interval-1e-9))return;r.last=S.t;try{r.st=rule(r)}catch(x){r.st="Falhou: "+x.message}});
   S.fac.forEach(f=>{const sp=SPEC[f.k],loc=f.loc;let a=0,p;const lvl=f.level||1,mul=1+.25*(lvl-1);
    if(f.k==="mine"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].ore+=a;p="ore"}
    else if(f.k==="refinery"){const i=Math.min(sp.rate*mul*dt,S.inv[loc].ore);if(i>1e-9){S.inv[loc].ore-=i;a=i*.8;S.inv[loc].ref+=a}p="ref"}
