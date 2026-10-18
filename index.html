@@ -295,11 +295,11 @@ function launchExploration(){
 }
 function renderExploration(){
  const shipSel=$("exploreShip"),planetSel=$("explorePlanet"),targetSel=$("exploreTarget");if(!shipSel||!planetSel||!targetSel)return;
- const ships=availableShips(),oldShip=shipSel.value;shipSel.innerHTML=ships.length?ships.map(v=>'<option value="' + v.id + '">' + v.name + ' · cap. ' + v.capacity + ' · ' + v.speed.toFixed(2) + 'x</option>').join(""):"<option value="">Nenhuma nave disponível</option>";
+ const ships=availableShips(),oldShip=shipSel.value;shipSel.innerHTML=ships.length?ships.map(v=>'<option value="' + v.id + '">' + v.name + ' · cap. ' + v.capacity + ' · ' + v.speed.toFixed(2) + 'x</option>').join(""):'<option value="">Nenhuma nave disponível</option>';
  if(ships.some(v=>String(v.id)===oldShip))shipSel.value=oldShip;shipSel.disabled=!ships.length;
  const oldPlanet=planetSel.value;planetSel.innerHTML=opts(L);planetSel.value=L.includes(oldPlanet)?oldPlanet:sel;
  const remaining=ASTEROIDS.filter(a=>!S.discoveries.some(d=>d.id===a.id)&&!S.expeditions.some(e=>e.targetId===a.id));
- const oldTarget=targetSel.value;targetSel.innerHTML=remaining.length?remaining.map(a=>`<option value="${a.id}">${a.name} · riqueza ${a.richness.toLowerCase()}</option>`).join(""):"<option value="">Todos os alvos catalogados</option>";
+ const oldTarget=targetSel.value;targetSel.innerHTML=remaining.length?remaining.map(a=>`<option value="${a.id}">${a.name} · riqueza ${a.richness.toLowerCase()}</option>`).join(""):'<option value="">Todos os alvos catalogados</option>';
  if(remaining.some(a=>a.id===oldTarget))targetSel.value=oldTarget;
  const target=ASTEROIDS.find(a=>a.id===targetSel.value);
  $("exploreInfo").innerHTML=target?`<b>${target.name}</b><p>Retorno estimado: ${(target.duration/Math.max(.1,ships.find(v=>String(v.id)===shipSel.value)?.speed||1)).toFixed(1)} h de jogo.</p><small>Possíveis depósitos: ${target.materials.join(", ")} · riqueza estimada: ${target.richness}.</small><br><small>Recompensa de reconhecimento: ${money(target.reward)}.</small>`:"<p>Todos os asteroides desta etapa já foram catalogados ou estão com missão ativa.</p>";
