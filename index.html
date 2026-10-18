@@ -59,6 +59,7 @@ h3{margin:14px 0 4px;font-size:13px;letter-spacing:.05em;text-transform:uppercas
 <label>Preço-limite (₡)<input id="at" type="number" min="0" value="10" style="width:90px" oninput="hint()"></label><label>Estoque a manter / alvo<input id="ar" type="number" min="0" value="0" style="width:100px" oninput="hint()"></label><label>Lote por vez<input id="ab" type="number" min="1" value="200" style="width:90px" oninput="hint()"></label></div>
 <p id="hn" class="mut"></p><button class="on" onclick="act(()=>{addRule();return 'Gerente contratado!'})">🤖 Contratar</button></div><div id="ru"></div></section>
 <section class="v" id="v3"><div class="card" id="dj"></div></section>
+<section class="v" id="v4"><div class="card"><h2>☄️ Exploração espacial</h2><p class="mut">Envie uma nave em missão de reconhecimento. A nave fica indisponível até voltar. As descobertas revelarão depósitos que poderão receber mineração espacial em uma próxima etapa.</p><div class="row"><label>Nave disponível<select id="exploreShip"></select></label><label>Partida<select id="explorePlanet"></select></label><label>Alvo<select id="exploreTarget"></select></label></div><div id="exploreInfo" class="card"></div><button class="on" id="launchExplore" onclick="act(()=>launchExploration())">🔭 Iniciar reconhecimento</button><small style="display:block;margin-top:8px">Custo por missão: ₡2.500 + 10 unidades de combustível. A duração depende da velocidade da nave.</small></div><div class="card"><h3>Missões em andamento</h3><div id="activeExplorations"></div></div><div class="card"><h3>Asteroides catalogados</h3><div id="discoveredAsteroids"></div><small>O catálogo é salvo junto com o progresso do jogo.</small></div></section>
 <div id="tt"></div><input type="hidden" id="bl" value="Marte">
 <script>
 const L=["Terra","Lua","Marte"],P=["ore","ref","comp","copper","silica","fuel"];
@@ -77,7 +78,7 @@ const money=x=>"₡"+Math.round(x).toLocaleString("pt-BR");
 const rt=(a,b)=>{const k=[a,b].sort().join("-");if(a===b||!ROUTE[k])throw Error("Rota inválida.");return ROUTE[k]};
 const clock=t=>{const m=Math.round(480+t*60);return `Dia ${Math.floor(m/1440)+1} — ${String(Math.floor(m%1440/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`};
 let S;
-function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logCap:1000,ships:[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}],fac:[{id:1,k:"mine",loc:"Marte",val:5000,prod:0,level:1}],infra:0,led:[],prod:Object.fromEntries(P.map(p=>[p,0])),mk:{},tr:[],log:[],hist:[],rules:[],nid:1};
+function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logCap:1000,ships:[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}],fac:[{id:1,k:"mine",loc:"Marte",val:5000,prod:0,level:1}],infra:0,led:[],prod:Object.fromEntries(P.map(p=>[p,0])),mk:{},tr:[],expeditions:[],discoveries:[],log:[],hist:[],rules:[],nid:1};
  L.forEach(l=>{S.inv[l]=Object.fromEntries(P.map(p=>[p,0]));P.forEach(p=>{const[b,d]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd:d,stock:d*24,price:b,mult:1,hist:[[0,b]]}})});
  say("Empresa fundada. Mina de ferro operando em Marte.")}
 function classifyLog(m){
@@ -111,8 +112,8 @@ function loadGame(show=true){
   if(!L.every(l=>d.S.inv[l]&&d.S.cap[l]!=null)||!["ore","ref","comp"].every(p=>d.S.prod[p]!=null)||!L.every(l=>["ore","ref","comp"].every(p=>d.S.inv[l][p]!=null&&d.S.mk[l+p])))throw Error("O save não contém os dados básicos necessários.");
   S=d.S;if(!Array.isArray(S.ships))S.ships=[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}];S.fac.forEach(f=>{if(!Number.isInteger(f.level))f.level=1});L.forEach(l=>{P.forEach(p=>{if(S.inv[l][p]==null)S.inv[l][p]=0;if(!S.mk[l+p]){const[b,bd]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd,stock:bd*24,price:b,mult:1,hist:[[Math.floor(S.t),b]]}}})});P.forEach(p=>{if(S.prod[p]==null)S.prod[p]=0});Object.values(S.mk).forEach(m=>{if(!Array.isArray(m.hist))m.hist=[[Math.floor(S.t),m.price]]});F=d.F&&typeof d.F==="object"?d.F:{};sel=L.includes(d.sel)?d.sel:"Marte";
   X=d.X&&P.includes(d.X.p)&&L.includes(d.X.d)&&d.X.p&&d.X.d?d.X:{p:"ore",d:"Terra"};
-  SP=[0,.5,1,2].includes(d.SP)?d.SP:.5;tab=Number.isInteger(d.tab)&&d.tab>=0&&d.tab<=3?d.tab:0;
-  for(let j=0;j<4;j++)$("v"+j).classList.toggle("on",j===tab);
+  SP=[0,.5,1,2].includes(d.SP)?d.SP:.5;tab=Number.isInteger(d.tab)&&d.tab>=0&&d.tab<=4?d.tab:0;S.expeditions=Array.isArray(S.expeditions)?S.expeditions:[];S.discoveries=Array.isArray(S.discoveries)?S.discoveries:[];
+  for(let j=0;j<5;j++)$("v"+j).classList.toggle("on",j===tab);
   const status=$("saveStatus");if(status)status.textContent="Save carregado de "+new Date(d.savedAt||Date.now()).toLocaleString("pt-BR");
   if(show){toast("Progresso carregado com sucesso.","ok");render()}
   return true;
@@ -140,7 +141,7 @@ function buy(l,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.")
  const b=m.price,target=pf(m,m.stock-q),a=b+(target-b)*.2,c=q*(b+a)/2;if(c>S.cash)throw Error(`Caixa insuficiente: custo ${money(c)}, caixa ${money(S.cash)}.`);
  S.cash-=c;S.inv[l][p]+=q;m.stock-=q;m.price=a;rec(0,c,"purchase");say(`Compra de ${q} ${PN[p].toLowerCase()} em ${l}: ${money(c)}.`);mv(m,b);return c}
 const incoming=d=>S.tr.filter(t=>t.d===d).reduce((a,t)=>a+t.q,0),inTransit=()=>S.tr.reduce((a,t)=>a+t.q,0);
-function availableShips(){return S.ships.filter(v=>!S.tr.some(t=>t.shipId===v.id))}
+function availableShips(){return S.ships.filter(v=>!S.tr.some(t=>t.shipId===v.id)&&!(S.expeditions||[]).some(e=>e.shipId===v.id))}
 function maxShipCapacity(){return Math.max(0,...availableShips().map(v=>v.capacity))}
 function ship(o,d,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.");const[cpu,h]=rt(o,d),c=q*cpu;
  if(q>S.inv[o][p]+1e-9)throw Error(`Estoque insuficiente em ${o}: ${Math.floor(S.inv[o][p])} un.`);
@@ -167,7 +168,7 @@ const SHIP_PURCHASE_INPUTS={cargo:{comp:50,fuel:30},courier:{comp:35,fuel:45},ba
 function shipPurchaseInputs(type){return SHIP_PURCHASE_INPUTS[type]||{}}
 function buyShip(type){const spec=SHIP_TYPES[type];if(!spec)throw Error("Modelo de nave inválido.");const loc=g("bl"),inputs=shipPurchaseInputs(type);if(spec.cost>S.cash)throw Error("Caixa insuficiente: nave custa "+money(spec.cost)+".");requireInputs(loc,inputs);spend(spec.cost);const v={id:++S.nid,...spec,level:1};S.ships.push(v);say(`Nova nave adquirida: ${v.name} (${v.capacity} un.); consumidos ${inputCostLabel(inputs)} em ${loc}.`);return `${v.name} adicionada à frota; materiais consumidos em ${loc}: ${inputCostLabel(inputs)}.`}
 function shipUpgradeCost(v){return Math.round(Math.max(v.cost||0,30000)*(.25+.2*(v.level||1)))}
-function upgradeShip(id){const v=S.ships.find(x=>x.id===id);if(!v)throw Error("Nave não encontrada.");if(S.tr.some(t=>t.shipId===v.id))throw Error("A nave precisa estar disponível para melhoria.");v.level=v.level||1;if(v.level>=5)throw Error("Esta nave já está no nível máximo.");const c=shipUpgradeCost(v),loc=g("bl"),inputs=shipUpgradeInputs(v);if(c>S.cash)throw Error("Caixa insuficiente: melhoria custa "+money(c)+".");requireInputs(loc,inputs);spend(c);v.level++;v.capacity=Math.round(v.capacity*1.25);v.speed=+(v.speed+.12).toFixed(2);v.cost=(v.cost||0)+c;say(`${v.name} melhorada para o nível ${v.level}: capacidade ${v.capacity}, velocidade ${v.speed.toFixed(2)}x; consumidos ${inputCostLabel(inputs)} em ${loc}.`);return `${v.name}: capacidade e velocidade melhoradas; materiais consumidos em ${loc}: ${inputCostLabel(inputs)}.`}
+function upgradeShip(id){const v=S.ships.find(x=>x.id===id);if(!v)throw Error("Nave não encontrada.");if(S.tr.some(t=>t.shipId===v.id)||(S.expeditions||[]).some(e=>e.shipId===v.id))throw Error("A nave precisa estar disponível para melhoria.");v.level=v.level||1;if(v.level>=5)throw Error("Esta nave já está no nível máximo.");const c=shipUpgradeCost(v),loc=g("bl"),inputs=shipUpgradeInputs(v);if(c>S.cash)throw Error("Caixa insuficiente: melhoria custa "+money(c)+".");requireInputs(loc,inputs);spend(c);v.level++;v.capacity=Math.round(v.capacity*1.25);v.speed=+(v.speed+.12).toFixed(2);v.cost=(v.cost||0)+c;say(`${v.name} melhorada para o nível ${v.level}: capacidade ${v.capacity}, velocidade ${v.speed.toFixed(2)}x; consumidos ${inputCostLabel(inputs)} em ${loc}.`);return `${v.name}: capacidade e velocidade melhoradas; materiais consumidos em ${loc}: ${inputCostLabel(inputs)}.`}
 function warehouse(){const l=g("bl");spend(10000);S.cap[l]+=1000;S.infra+=10000;say(`Armazém de ${l} ampliado em 1000 un.`);return "Armazém ampliado."}
 function logi(){spend(5000);S.logCap+=1000;S.infra+=5000;say("Capacidade logística ampliada em 1000 un.");return "Capacidade logística ampliada."}
 function productReserve(l,p){return S.fac.filter(f=>f.loc===l).reduce((total,f)=>{const recipe=RECIPES[SPEC[f.k]?.recipe];if(!recipe)return total;const outputRate=SPEC[f.k].rate*recipe.factor*(1+.25*((f.level||1)-1));return total+outputRate*(recipe.inputs[p]||0)},0)}
@@ -237,6 +238,7 @@ function advance(h){S.prodLog=S.prodLog||{};while(h>1e-9){const dt=Math.min(.05,
    else if(f.k==="fuelPlant"){const i=Math.min(sp.rate*2*mul*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
    if(a>1e-9){f.prod+=a;S.prod[p]+=a;const key=String(f.id);if(!S.prodLog[key])S.prodLog[key]={id:f.id,k:f.k,loc:f.loc,p,a:0,inputs:{}};if(!S.prodLog[key].inputs)S.prodLog[key].inputs={};S.prodLog[key].a+=a;Object.entries(usedInputs).forEach(([material,q])=>S.prodLog[key].inputs[material]=(S.prodLog[key].inputs[material]||0)+q)}});
   S.tr.slice().forEach(t=>{if(S.t+1e-9<t.eta)return;if(free(t.d)+1e-9>=t.q){S.inv[t.d][t.p]+=t.q;S.tr.splice(S.tr.indexOf(t),1);say(`Transporte ${t.o} → ${t.d} concluído: ${t.q} ${PN[t.p].toLowerCase()} entregues.`)}else if(!t.blocked){t.blocked=true;t.blockedAt=S.t;say(`Entrega ${t.o} → ${t.d} bloqueada: armazém de destino sem espaço para ${t.q} un. Libere espaço ou amplie o armazém.`,"warning")}});
+  (S.expeditions||[]).slice().forEach(e=>{if(S.t+1e-9<e.eta)return;const target=ASTEROIDS.find(a=>a.id===e.targetId);if(target&&!S.discoveries.some(d=>d.id===target.id)){S.discoveries.push({id:target.id,name:target.name,materials:target.materials,richness:target.richness,discoveredAt:S.t,launchPlanet:e.launchPlanet});S.cash+=target.reward;rec(target.reward,0,"exploration");say(`Reconhecimento concluído: ${target.name} catalogado. Depósitos identificados: ${target.materials.join(", ")}. Recompensa ${money(target.reward)}.`,"system")}else say(`Missão de reconhecimento concluída sem nova descoberta em ${e.targetName}.`,"system");S.expeditions.splice(S.expeditions.indexOf(e),1)});
   const offtakeQty=consumeCompanyStock(dt);
   Object.values(S.mk).forEach(m=>{m.mult+=(1-m.mult)*Math.min(1,.03*dt)+gauss()*.02*Math.sqrt(dt);
    if(Math.random()<.01*dt){const f=Math.random()<.5?1.6:.6;m.mult*=f;say(`Demanda por ${PN[m.p].toLowerCase()} em ${m.l} ${f>1?"disparou":"despencou"}.`)}
@@ -268,7 +270,45 @@ function toast(m,c){const t=$("tt"),d=document.createElement("div");d.className=
 function act(fn){try{toast(fn(),"ok")}catch(x){toast(x.message,"err")}render()}
 const skip=h=>{advance(h);render()};
 function pick(l){sel=l;$("bl").value=l;render()}
-function setTab(i){tab=i;for(let j=0;j<4;j++)$("v"+j).classList.toggle("on",j===i);render()}
+
+const ASTEROIDS=[
+ {id:"ceres-7",name:"Ceres-7",materials:["gelo","silicatos","minério de ferro"],richness:"Média",duration:6,reward:6000},
+ {id:"psyche-16",name:"Psyche-16",materials:["ferro refinado","cobre","componentes"],richness:"Alta",duration:9,reward:8500},
+ {id:"vesta-4",name:"Vesta-4",materials:["minério de ferro","cobre"],richness:"Alta",duration:7,reward:7000},
+ {id:"eros-12",name:"Eros-12",materials:["silício","componentes"],richness:"Média",duration:5,reward:5500},
+ {id:"bennu-3",name:"Bennu-3",materials:["silicatos","metais raros"],richness:"Muito alta",duration:12,reward:11000}
+];
+function launchExploration(){
+ const shipId=Number(g("exploreShip")),ship=S.ships.find(v=>v.id===shipId),planet=g("explorePlanet"),target=ASTEROIDS.find(a=>a.id===g("exploreTarget"));
+ if(!ship||!availableShips().some(v=>v.id===ship.id))throw Error("Escolha uma nave disponível; naves em viagem ou exploração não podem partir.");
+ if(!L.includes(planet))throw Error("Planeta de partida inválido.");
+ if(!target)throw Error("Escolha um alvo de reconhecimento.");
+ if(S.discoveries.some(d=>d.id===target.id))throw Error("Este asteroide já está catalogado.");
+ if(S.expeditions.some(e=>e.targetId===target.id))throw Error("Já existe uma missão ativa para este asteroide.");
+ if(S.cash<2500)throw Error("Caixa insuficiente: a missão custa ₡2.500.");
+ if((S.inv[planet]?.fuel||0)<10)throw Error("São necessárias 10 unidades de combustível no planeta de partida.");
+ spend(2500);rec(0,2500,"exploration");S.inv[planet].fuel-=10;
+ const eta=S.t+target.duration/Math.max(.1,ship.speed);
+ S.expeditions.push({id:++S.nid,shipId:ship.id,shipName:ship.name,launchPlanet:planet,targetId:target.id,targetName:target.name,start:S.t,eta});
+ say(`Missão de reconhecimento iniciada: ${ship.name} partiu de ${planet} rumo a ${target.name}. Consumo: 10 combustível e ₡2.500.`,"logistics");
+ return `Missão iniciada. Retorno estimado em ${(eta-S.t).toFixed(1)} horas de jogo.`;
+}
+function renderExploration(){
+ const shipSel=$("exploreShip"),planetSel=$("explorePlanet"),targetSel=$("exploreTarget");if(!shipSel||!planetSel||!targetSel)return;
+ const ships=availableShips(),oldShip=shipSel.value;shipSel.innerHTML=ships.length?ships.map(v=>`<option value="${v.id}">${v.name} · cap. ${v.capacity} · ${v.speed.toFixed(2)}x</option>`).join(""):"<option value="">Nenhuma nave disponível</option>";
+ if(ships.some(v=>String(v.id)===oldShip))shipSel.value=oldShip;shipSel.disabled=!ships.length;
+ const oldPlanet=planetSel.value;planetSel.innerHTML=opts(L);planetSel.value=L.includes(oldPlanet)?oldPlanet:sel;
+ const remaining=ASTEROIDS.filter(a=>!S.discoveries.some(d=>d.id===a.id)&&!S.expeditions.some(e=>e.targetId===a.id));
+ const oldTarget=targetSel.value;targetSel.innerHTML=remaining.length?remaining.map(a=>`<option value="${a.id}">${a.name} · riqueza ${a.richness.toLowerCase()}</option>`).join(""):"<option value="">Todos os alvos catalogados</option>";
+ if(remaining.some(a=>a.id===oldTarget))targetSel.value=oldTarget;
+ const target=ASTEROIDS.find(a=>a.id===targetSel.value);
+ $("exploreInfo").innerHTML=target?`<b>${target.name}</b><p>Retorno estimado: ${(target.duration/Math.max(.1,ships.find(v=>String(v.id)===shipSel.value)?.speed||1)).toFixed(1)} h de jogo.</p><small>Possíveis depósitos: ${target.materials.join(", ")} · riqueza estimada: ${target.richness}.</small><br><small>Recompensa de reconhecimento: ${money(target.reward)}.</small>`:"<p>Todos os asteroides desta etapa já foram catalogados ou estão com missão ativa.</p>";
+ $("launchExplore").disabled=!ships.length||!target||S.cash<2500||(S.inv[planetSel.value]?.fuel||0)<10;
+ $("activeExplorations").innerHTML=S.expeditions.length?S.expeditions.map(e=>`<article class="fc idle"><span class="ic">🛰️</span><div><b>${e.targetName}</b><small>${e.shipName} · partida de ${e.launchPlanet}</small><small>Retorno em ${Math.max(0,e.eta-S.t).toFixed(1)} h de jogo</small></div><em>Em missão</em></article>`).join(""):"<small>Nenhuma missão em andamento.</small>";
+ $("discoveredAsteroids").innerHTML=S.discoveries.length?S.discoveries.map(d=>`<article class="fc run"><span class="ic">☄️</span><div><b>${d.name}</b><small>Depósitos: ${d.materials.join(", ")}</small><small>Riqueza: ${d.richness} · catalogado em ${clock(d.discoveredAt)}</small></div><em>Catalogado</em></article>`).join(""):"<small>Nenhum asteroide catalogado. Prepare combustível e envie uma nave para começar.</small>";
+}
+
+function setTab(i){tab=i;for(let j=0;j<5;j++)$("v"+j).classList.toggle("on",j===i);render()}
 function tr(l,p,sl,v){act(()=>{const m=E(l,p);if(sl){let q=Math.floor(S.inv[l][p]*v);if(q<1)throw Error("Você não tem nada para vender aqui.");q=Math.min(q,Math.floor(tgt(m)*3-m.stock));if(q<1)throw Error("Mercado saturado. Tente outro planeta!");return`Vendeu ${q} ${PN[p]} por ${money(sell(l,p,q))}`}
  const q=Math.min(v,Math.floor(free(l)),Math.floor(m.stock-1));if(q<1)throw Error("Sem espaço no armazém ou sem oferta.");return`Comprou ${q} ${PN[p]} por ${money(buy(l,p,q))}`})}
 function sendQ(n){act(()=>{const l=sel,p=X.p,d=X.d;let q=n==="max"?Math.floor(Math.min(S.inv[l][p],S.logCap-inTransit(),free(d)-incoming(d),maxShipCapacity())):n;if(q<1)throw Error("Nada a enviar (estoque, logística ou espaço no destino).");ship(l,d,p,q);return`🚀 ${q} ${PN[p]} a caminho de ${d}`})}
@@ -343,14 +383,14 @@ function render(){const f=fin();
  put("hud",`<div class="lg"><b>🚀 Industrial Frontier</b><small>${clock(S.t)}</small></div><div class="cash"><small>CAIXA</small><b class="${f.cash<0?"dn":""}">${money(f.cash)}</b></div><div><small>FLUXO DE CAIXA/H</small><b class="${f.pr>=0?"up":"dn"}">${f.pr>=0?"▲":"▼"} ${money(Math.abs(f.pr))}</b></div><div><small>VALOR DA EMPRESA</small><b>${money(f.val)}</b></div><div class="sp">${[[0,"⏸"],[.5,"1×"],[1,"2×"],[2,"4×"]].map(([v,i])=>`<button title="${v===0?"Pausar o tempo":v+" hora(s) de jogo por minuto real"}" aria-label="${v===0?"Pausar":v+"x velocidade"}" class="${SP===v?"on":""}" onclick="SP=${v};render()">${i}</button>`).join("")}<button onclick="skip(6)">+6h</button></div>`);
  const mi=MS.findIndex(m=>!m[2]());
  put("ms",mi<0?`<div class="mi win">🏆 <b>Protótipo concluído!</b> Continue expandindo seu império.</div>`:`<div class="mi"><span class="mn">MISSÃO ${mi+1}/${MS.length}</span><b>${MS[mi][0]}</b><div class="dots">${MS.map((_,j)=>`<i class="${j<mi?"d":j===mi?"c":""}"></i>`).join("")}</div><small>${MS[mi][1]}</small></div>`);
- put("nav",["🌌 Sistema","📈 Empresa","🤖 Gerentes","📜 Diário"].map((n,i)=>`<button class="${tab===i?"on":""}" onclick="setTab(${i})">${n}</button>`).join(""));
+ put("nav",["🌌 Sistema","📈 Empresa","🤖 Gerentes","📜 Diário","☄️ Exploração"].map((n,i)=>`<button class="${tab===i?"on":""}" onclick="setTab(${i})">${n}</button>`).join(""));
  put("map",mapSvg());put("pn",panel());layoutPlanetPanel();
  const saleable=L.reduce((sum,l)=>sum+P.reduce((v,p)=>v+Math.max(0,S.inv[l][p]-productReserve(l,p))*E(l,p).price,0),0);put("co",[["Caixa disponível",f.cash],["Estoque total imobilizado",f.inv+f.cargo],["Estoque não reservado",saleable],["Ativos fixos",f.fixed],["Receita/h",f.rv],["Despesas/h",f.cs],["Lucro líquido/h",f.pr],["Compras de estoque/h",f.purchases],["Frete/h",f.freight],["Custos operacionais/h",f.op],["Liquidez",f.liquidity.toFixed(1)+"%"],["Valor da empresa",f.val]].map(([a,b])=>`<div class="m"><small>${a}</small><b class="${typeof b==="number"&&b<0?"dn":""}">${typeof b==="string"?b:money(b)}</b></div>`).join(""));
  put("of",P.map(p=>`<div class="m"><small>${ICON[p]} ${PN[p]}</small><b>${(S.ofTake?.[p]||0).toLocaleString("pt-BR",{maximumFractionDigits:1})}</b><small>un. vendidas por demanda</small></div>`).join(""));
  put("pr",P.map(p=>`<div class="m"><small>${ICON[p]} ${PN[p]}</small><b>${Math.round(S.prod[p]).toLocaleString("pt-BR")}</b></div>`).join(""));
  const H=S.hist.filter(x=>x[0]>=S.t-24);if(H.length>1){const mx=Math.max(...H.map(x=>Math.max(x[1],x[2],1))),mn=Math.min(0,...H.map(x=>x[1])),Xp=i=>i/(H.length-1)*600,Y=v=>190-(v-mn)/(mx-mn||1)*180,pl=(j,c)=>`<polyline fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke" points="${H.map((x,i)=>Xp(i).toFixed(1)+","+Y(x[j]).toFixed(1)).join(" ")}"/>`;put("ch",pl(1,"#5b8cff")+pl(2,"#3ddc97"))}drawEconomicChart(H);
  put("ru",S.rules.length?S.rules.map(r=>`<div class="card rc"><div><b>${KIND[r.k]}</b><br>${ruleText(r)}<br><span class="chip">${r.on?"🟢 Ativo":"⏸ Pausado"} · ${r.st}</span></div><button onclick="rl(${r.id},0)">${r.on?"⏸ Pausar":"▶ Ativar"}</button><button onclick="rl(${r.id},1)">🗑</button></div>`).join(""):`<p class="mut">Nenhum gerente ainda. Contrate um e deixe a empresa trabalhar sozinha.</p>`);
- put("dj",journal());
+ put("dj",journal());renderExploration();
  const i=S.log.indexOf(lastLog);(i<0?S.log.slice(0,3):S.log.slice(0,i)).reverse().forEach(e=>{if(/concluído|construída|ampliad|Demanda|Gerente/.test(e[1]))toast(e[1])});lastLog=S.log[0]}
 function drawEconomicChart(H){const root=$("econch");if(!root)return;root.innerHTML="";if(H.length<2)return;const vals=H.flatMap(x=>[x[3]||0,x[4]||0,x[5]||0]),mx=Math.max(1,...vals),mn=Math.min(0,...vals),Xp=i=>i/(H.length-1)*600,Y=v=>190-(v-mn)/(mx-mn||1)*180;[[3,"#5b8cff"],[4,"#ff6b6b"],[5,"#3ddc97"]].forEach(([j,c])=>{const p=document.createElementNS("http://www.w3.org/2000/svg","polyline");p.setAttribute("fill","none");p.setAttribute("stroke",c);p.setAttribute("stroke-width","2");p.setAttribute("vector-effect","non-scaling-stroke");p.setAttribute("points",H.map((x,i)=>Xp(i).toFixed(1)+","+Y(x[j]||0).toFixed(1)).join(" "));root.appendChild(p)})}
 $("al").innerHTML=opts(L);$("ad").innerHTML=opts(L);$("ap").innerHTML=opts(P,PN);$("al").value="Marte";$("ad").value="Terra";
