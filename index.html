@@ -59,12 +59,12 @@ h3{margin:14px 0 4px;font-size:13px;letter-spacing:.05em;text-transform:uppercas
 <label>Preço-limite (₡)<input id="at" type="number" min="0" value="10" style="width:90px" oninput="hint()"></label><label>Estoque a manter / alvo<input id="ar" type="number" min="0" value="0" style="width:100px" oninput="hint()"></label><label>Lote por vez<input id="ab" type="number" min="1" value="200" style="width:90px" oninput="hint()"></label></div>
 <p id="hn" class="mut"></p><button class="on" onclick="act(()=>{addRule();return 'Gerente contratado!'})">🤖 Contratar</button></div><div id="ru"></div></section>
 <section class="v" id="v3"><div class="card" id="dj"></div></section>
-<section class="v" id="v4"><div class="card"><h2>☄️ Exploração espacial</h2><p class="mut">Envie uma nave em missão de reconhecimento. A nave fica indisponível até voltar. As descobertas revelarão depósitos que poderão receber mineração espacial em uma próxima etapa.</p><div class="row"><label>Nave disponível<select id="exploreShip" onchange="renderExploration()"></select></label><label>Partida<select id="explorePlanet" onchange="renderExploration()"></select></label><label>Alvo<select id="exploreTarget" onchange="renderExploration()"></select></label></div><div id="exploreInfo" class="card"></div><button class="on" id="launchExplore" onclick="act(()=>launchExploration())">🔭 Iniciar reconhecimento</button><small style="display:block;margin-top:8px">Custo por missão: ₡2.500 + 10 unidades de combustível. A duração depende da velocidade da nave.</small></div><div class="card"><h3>Missões em andamento</h3><div id="activeExplorations"></div></div><div class="card"><h3>Asteroides catalogados</h3><div id="discoveredAsteroids"></div><small>O catálogo é salvo junto com o progresso do jogo.</small></div></section>
+<section class="v" id="v4"><div class="card"><h2>☄️ Exploração espacial</h2><p class="mut">Envie uma nave em missão de reconhecimento. A nave fica indisponível até voltar. As descobertas revelarão depósitos que poderão receber mineração espacial em uma próxima etapa.</p><div class="row"><label>Nave disponível<select id="exploreShip" onchange="renderExploration()"></select></label><label>Partida<select id="explorePlanet" onchange="renderExploration()"></select></label><label>Alvo<select id="exploreTarget" onchange="renderExploration()"></select></label></div><div id="exploreInfo" class="card"></div><button class="on" id="launchExplore" onclick="act(()=>launchExploration())">🔭 Iniciar reconhecimento</button><small style="display:block;margin-top:8px">Custo por missão: ₡2.500 + 10 unidades de combustível. A duração depende da velocidade da nave.</small></div><div class="card"><h3>Missões em andamento</h3><div id="activeExplorations"></div></div><div class="card"><h3>Asteroides catalogados</h3><div id="discoveredAsteroids"></div><small>O catálogo é salvo junto com o progresso do jogo.</small></div><div class="card"><h3>⛏️ Mineração espacial</h3><p class="mut">Construa plataformas nos depósitos descobertos. A extração consome operação, tem reservas finitas e armazena a carga no próprio asteroide até um cargueiro buscá-la.</p><div class="row"><label>Planeta para pagar construção/melhoria<select id="minePlanet"></select></label><label>Nave para transporte<select id="mineShip"></select></label><label>Planeta de destino<select id="mineDest"></select></label></div><div id="miningPlatforms"></div></div></section>
 <div id="tt"></div><input type="hidden" id="bl" value="Marte">
 <script>
-const L=["Terra","Lua","Marte"],P=["ore","ref","comp","copper","silica","fuel"];
-const PN={ore:"Minério de ferro",ref:"Ferro refinado",comp:"Componentes industriais",copper:"Cobre",silica:"Silício",fuel:"Combustível"};
-const SEED={Terra:{ore:[12,80],ref:[30,60],comp:[450,8],copper:[85,40],silica:[22,100],fuel:[65,50]},Lua:{ore:[9,120],ref:[26,30],comp:[420,4],copper:[78,25],silica:[18,140],fuel:[82,20]},Marte:{ore:[8,40],ref:[34,50],comp:[520,12],copper:[70,60],silica:[28,70],fuel:[58,35]}};
+const L=["Terra","Lua","Marte"],P=["ore","ref","comp","copper","silica","fuel","ice","rare"];
+const PN={ore:"Minério de ferro",ref:"Ferro refinado",comp:"Componentes industriais",copper:"Cobre",silica:"Silício / silicatos",fuel:"Combustível",ice:"Gelo espacial",rare:"Metais raros"};
+const SEED={Terra:{ore:[12,80],ref:[30,60],comp:[450,8],copper:[85,40],silica:[22,100],fuel:[65,50],ice:[110,3],rare:[900,1]},Lua:{ore:[9,120],ref:[26,30],comp:[420,4],copper:[78,25],silica:[18,140],fuel:[82,20],ice:[95,4],rare:[850,1]},Marte:{ore:[8,40],ref:[34,50],comp:[520,12],copper:[70,60],silica:[28,70],fuel:[58,35],ice:[125,2],rare:[1100,1]}};
 const ROUTE={"Lua-Terra":[5,1.5],"Marte-Terra":[10,2.5],"Lua-Marte":[8,1]};
 const SPEC={mine:{n:"Mina de ferro",cost:20000,rate:100,up:40,rc:"Produz 100 minério/h"},refinery:{n:"Refinaria de ferro",cost:5000,rate:50,up:60,recipe:"iron_refining",rc:"Receita: 1,25 minério → 1 ferro refinado"},factory:{n:"Fábrica de componentes",cost:15000,rate:4,up:90,recipe:"components",rc:"Receita: 10 ferro refinado + 2,5 cobre + 2,5 silício → 1 componente"},copperMine:{n:"Mina de cobre",cost:18000,rate:35,up:45,rc:"Produz 35 cobre/h"},silicaExtractor:{n:"Extratora de silício",cost:12000,rate:60,up:35,rc:"Produz 60 silício/h"},fuelPlant:{n:"Usina de combustível",cost:22000,rate:10,up:80,recipe:"fuel",rc:"Receita: 2 minério → 1 combustível"}};
 const RECIPES={
@@ -78,7 +78,7 @@ const money=x=>"₡"+Math.round(x).toLocaleString("pt-BR");
 const rt=(a,b)=>{const k=[a,b].sort().join("-");if(a===b||!ROUTE[k])throw Error("Rota inválida.");return ROUTE[k]};
 const clock=t=>{const m=Math.round(480+t*60);return `Dia ${Math.floor(m/1440)+1} — ${String(Math.floor(m%1440/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`};
 let S;
-function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logCap:1000,ships:[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}],fac:[{id:1,k:"mine",loc:"Marte",val:5000,prod:0,level:1}],infra:0,led:[],prod:Object.fromEntries(P.map(p=>[p,0])),mk:{},tr:[],expeditions:[],discoveries:[],log:[],hist:[],rules:[],nid:1};
+function init(){S={t:0,cash:10000,inv:{},cap:{Terra:300,Lua:300,Marte:1000},logCap:1000,ships:[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}],fac:[{id:1,k:"mine",loc:"Marte",val:5000,prod:0,level:1}],infra:0,led:[],prod:Object.fromEntries(P.map(p=>[p,0])),mk:{},tr:[],expeditions:[],discoveries:[],asteroidDeposits:{},miningPlatforms:[],miningTrips:[],log:[],hist:[],rules:[],nid:1};
  L.forEach(l=>{S.inv[l]=Object.fromEntries(P.map(p=>[p,0]));P.forEach(p=>{const[b,d]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd:d,stock:d*24,price:b,mult:1,hist:[[0,b]]}})});
  say("Empresa fundada. Mina de ferro operando em Marte.")}
 function classifyLog(m){
@@ -110,7 +110,7 @@ function loadGame(show=true){
   const d=JSON.parse(raw);
   if(d.version!==1||!d.S||typeof d.S.t!=="number"||!d.S.inv||!d.S.mk||!Array.isArray(d.S.fac)||!Array.isArray(d.S.tr)||!Array.isArray(d.S.log)||!Array.isArray(d.S.hist)||!Array.isArray(d.S.rules)||!d.S.cap||!d.S.prod)throw Error("Save inválido ou incompatível.");
   if(!L.every(l=>d.S.inv[l]&&d.S.cap[l]!=null)||!["ore","ref","comp"].every(p=>d.S.prod[p]!=null)||!L.every(l=>["ore","ref","comp"].every(p=>d.S.inv[l][p]!=null&&d.S.mk[l+p])))throw Error("O save não contém os dados básicos necessários.");
-  S=d.S;if(!Array.isArray(S.ships))S.ships=[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}];S.fac.forEach(f=>{if(!Number.isInteger(f.level))f.level=1});L.forEach(l=>{P.forEach(p=>{if(S.inv[l][p]==null)S.inv[l][p]=0;if(!S.mk[l+p]){const[b,bd]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd,stock:bd*24,price:b,mult:1,hist:[[Math.floor(S.t),b]]}}})});P.forEach(p=>{if(S.prod[p]==null)S.prod[p]=0});Object.values(S.mk).forEach(m=>{if(!Array.isArray(m.hist))m.hist=[[Math.floor(S.t),m.price]]});F=d.F&&typeof d.F==="object"?d.F:{};sel=L.includes(d.sel)?d.sel:"Marte";
+  S=d.S;if(!S.asteroidDeposits||typeof S.asteroidDeposits!=="object")S.asteroidDeposits={};if(!Array.isArray(S.miningPlatforms))S.miningPlatforms=[];if(!Array.isArray(S.miningTrips))S.miningTrips=[];if(!Array.isArray(S.ships))S.ships=[{id:0,name:"Pioneira",capacity:500,speed:1,level:1,cost:0}];S.fac.forEach(f=>{if(!Number.isInteger(f.level))f.level=1});L.forEach(l=>{P.forEach(p=>{if(S.inv[l][p]==null)S.inv[l][p]=0;if(!S.mk[l+p]){const[b,bd]=SEED[l][p];S.mk[l+p]={l,p,base:b,bd,stock:bd*24,price:b,mult:1,hist:[[Math.floor(S.t),b]]}}})});P.forEach(p=>{if(S.prod[p]==null)S.prod[p]=0});Object.values(S.mk).forEach(m=>{if(!Array.isArray(m.hist))m.hist=[[Math.floor(S.t),m.price]]});F=d.F&&typeof d.F==="object"?d.F:{};sel=L.includes(d.sel)?d.sel:"Marte";
   X=d.X&&P.includes(d.X.p)&&L.includes(d.X.d)&&d.X.p&&d.X.d?d.X:{p:"ore",d:"Terra"};
   SP=[0,.5,1,2].includes(d.SP)?d.SP:.5;tab=Number.isInteger(d.tab)&&d.tab>=0&&d.tab<=4?d.tab:0;S.expeditions=Array.isArray(S.expeditions)?S.expeditions:[];S.discoveries=Array.isArray(S.discoveries)?S.discoveries:[];
   for(let j=0;j<5;j++)$("v"+j).classList.toggle("on",j===tab);
@@ -140,8 +140,8 @@ function buy(l,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.")
  if(q>free(l)+1e-9)throw Error(`Armazém de ${l} sem espaço: ${Math.floor(free(l))} un. livres.`);
  const b=m.price,target=pf(m,m.stock-q),a=b+(target-b)*.2,c=q*(b+a)/2;if(c>S.cash)throw Error(`Caixa insuficiente: custo ${money(c)}, caixa ${money(S.cash)}.`);
  S.cash-=c;S.inv[l][p]+=q;m.stock-=q;m.price=a;rec(0,c,"purchase");say(`Compra de ${q} ${PN[p].toLowerCase()} em ${l}: ${money(c)}.`);mv(m,b);return c}
-const incoming=d=>S.tr.filter(t=>t.d===d).reduce((a,t)=>a+t.q,0),inTransit=()=>S.tr.reduce((a,t)=>a+t.q,0);
-function availableShips(){return S.ships.filter(v=>!S.tr.some(t=>t.shipId===v.id)&&!(S.expeditions||[]).some(e=>e.shipId===v.id))}
+const incoming=d=>S.tr.filter(t=>t.d===d).reduce((a,t)=>a+t.q,0)+(S.miningTrips||[]).filter(t=>t.dest===d).reduce((a,t)=>a+t.q,0),inTransit=()=>S.tr.reduce((a,t)=>a+t.q,0)+(S.miningTrips||[]).reduce((a,t)=>a+t.q,0);
+function availableShips(){return S.ships.filter(v=>!S.tr.some(t=>t.shipId===v.id)&&!(S.expeditions||[]).some(e=>e.shipId===v.id)&&!(S.miningTrips||[]).some(t=>t.shipId===v.id))}
 function maxShipCapacity(){return Math.max(0,...availableShips().map(v=>v.capacity))}
 function ship(o,d,p,q){if(!(q>0))throw Error("Quantidade deve ser maior que zero.");const[cpu,h]=rt(o,d),c=q*cpu;
  if(q>S.inv[o][p]+1e-9)throw Error(`Estoque insuficiente em ${o}: ${Math.floor(S.inv[o][p])} un.`);
@@ -240,15 +240,17 @@ function advance(h){S.prodLog=S.prodLog||{};while(h>1e-9){const dt=Math.min(.05,
    else if(f.k==="fuelPlant"){const i=Math.min(sp.rate*2*mul*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
    if(a>1e-9){f.prod+=a;S.prod[p]+=a;const key=String(f.id);if(!S.prodLog[key])S.prodLog[key]={id:f.id,k:f.k,loc:f.loc,p,a:0,inputs:{}};if(!S.prodLog[key].inputs)S.prodLog[key].inputs={};S.prodLog[key].a+=a;Object.entries(usedInputs).forEach(([material,q])=>S.prodLog[key].inputs[material]=(S.prodLog[key].inputs[material]||0)+q)}});
   S.tr.slice().forEach(t=>{if(S.t+1e-9<t.eta)return;if(free(t.d)+1e-9>=t.q){S.inv[t.d][t.p]+=t.q;S.tr.splice(S.tr.indexOf(t),1);say(`Transporte ${t.o} → ${t.d} concluído: ${t.q} ${PN[t.p].toLowerCase()} entregues.`)}else if(!t.blocked){t.blocked=true;t.blockedAt=S.t;say(`Entrega ${t.o} → ${t.d} bloqueada: armazém de destino sem espaço para ${t.q} un. Libere espaço ou amplie o armazém.`,"warning")}});
-  (S.expeditions||[]).slice().forEach(e=>{if(S.t+1e-9<e.eta)return;const target=ASTEROIDS.find(a=>a.id===e.targetId);if(target&&!S.discoveries.some(d=>d.id===target.id)){S.discoveries.push({id:target.id,name:target.name,materials:target.materials,richness:target.richness,discoveredAt:S.t,launchPlanet:e.launchPlanet});S.cash+=target.reward;rec(target.reward,0,"exploration");say(`Reconhecimento concluído: ${target.name} catalogado. Depósitos identificados: ${target.materials.join(", ")}. Recompensa ${money(target.reward)}.`,"system")}else say(`Missão de reconhecimento concluída sem nova descoberta em ${e.targetName}.`,"system");S.expeditions.splice(S.expeditions.indexOf(e),1)});
+  (S.expeditions||[]).slice().forEach(e=>{if(S.t+1e-9<e.eta)return;const target=ASTEROIDS.find(a=>a.id===e.targetId);if(target&&!S.discoveries.some(d=>d.id===target.id)){S.discoveries.push({id:target.id,name:target.name,materials:target.materials,richness:target.richness,discoveredAt:S.t,launchPlanet:e.launchPlanet});initializeAsteroidDeposits(S.discoveries[S.discoveries.length-1]);S.cash+=target.reward;rec(target.reward,0,"exploration");say(`Reconhecimento concluído: ${target.name} catalogado. Depósitos identificados: ${target.materials.join(", ")}. Recompensa ${money(target.reward)}.`,"system")}else say(`Missão de reconhecimento concluída sem nova descoberta em ${e.targetName}.`,"system");S.expeditions.splice(S.expeditions.indexOf(e),1)});
+  (S.miningPlatforms||[]).forEach(m=>{const dep=S.asteroidDeposits?.[m.asteroidId],left=dep?.[m.material]||0;if(left<=0||m.stock>=(m.capacity||500))return;const richness=ASTEROIDS.find(a=>a.id===m.asteroidId)?.richness||"Média",factor=richness==="Muito alta"?1.8:richness==="Alta"?1.35:1,rate=8*factor*(1+.25*((m.level||1)-1)),q=Math.min(rate*dt,left,(m.capacity||500)-m.stock);if(q>1e-9){m.stock+=q;dep[m.material]=Math.max(0,left-q)}});
+  (S.miningTrips||[]).slice().forEach(t=>{if(S.t+1e-9<t.eta)return;if(free(t.dest)+1e-9>=t.q){S.inv[t.dest][t.material]+=t.q;S.miningTrips.splice(S.miningTrips.indexOf(t),1);say(`Carga espacial entregue em ${t.dest}: ${t.q.toFixed(1)} ${PN[t.material].toLowerCase()} de ${t.asteroidName}.`,"logistics")}else if(!t.blocked){t.blocked=true;say(`Entrega espacial bloqueada: armazém de ${t.dest} sem espaço para ${t.q.toFixed(1)} ${PN[t.material].toLowerCase()}.`,"warning")}});
   const offtakeQty=consumeCompanyStock(dt);
   Object.values(S.mk).forEach(m=>{m.mult+=(1-m.mult)*Math.min(1,.03*dt)+gauss()*.02*Math.sqrt(dt);
    if(Math.random()<.01*dt){const f=Math.random()<.5?1.6:.6;m.mult*=f;say(`Demanda por ${PN[m.p].toLowerCase()} em ${m.l} ${f>1?"disparou":"despencou"}.`)}
    m.mult=Math.min(Math.max(m.mult,.4),2.5);m.stock=Math.max(0,m.stock+m.bd*Math.pow(m.price/m.base,1.5)*dt-Math.min(m.stock,Math.max(0,dem(m)-(offtakeQty[m.l+m.p]||0)/Math.max(dt,1e-9))*dt));const target=pf(m);m.price+=(target-m.price)*Math.min(1,.5*dt)});
-  const c=S.fac.reduce((a,f)=>a+SPEC[f.k].up*(1+.2*((f.level||1)-1))*(facilityBlockReason(f)?.15:1),0)*dt+S.rules.filter(r=>r.on).length*15*dt;S.cash-=c;rec(0,c);
+  const miningOp=(S.miningPlatforms||[]).reduce((a,m)=>{const left=S.asteroidDeposits?.[m.asteroidId]?.[m.material]||0;return a+(left>0&&m.stock<(m.capacity||500)?25*(m.level||1):0)},0)*dt;const c=S.fac.reduce((a,f)=>a+SPEC[f.k].up*(1+.2*((f.level||1)-1))*(facilityBlockReason(f)?.15:1),0)*dt+S.rules.filter(r=>r.on).length*15*dt+miningOp;S.cash-=c;rec(0,c);
   if(Math.floor(S.t)>ph){Object.values(S.mk).forEach(m=>{m.hist.push([Math.floor(S.t),m.price]);if(m.hist.length>25)m.hist.shift()});Object.values(S.prodLog).forEach(x=>{if(x.a>=1){const inputs=Object.entries(x.inputs||{}).filter(([,q])=>q>0.01).map(([p,q])=>`${q.toFixed(1)} ${PN[p].toLowerCase()}`);const detail=inputs.length? ` Insumos consumidos: ${inputs.join(", ")}.`:"";say(`${SPEC[x.k].n} em ${x.loc}: produziu ${x.a.toFixed(1)} ${PN[x.p].toLowerCase()} na última hora.${detail}`,"production")}});S.prodLog={};const f=fin();S.hist.push([Math.floor(S.t),f.cash,f.val,f.rv,f.cs,f.pr,f.inv+f.cargo,f.purchases,f.freight,f.op]);if(S.hist.length>600)S.hist.shift()}}}
 
-const ICON={ore:"🪨",ref:"🔩",comp:"⚙️",copper:"🟠",silica:"🔷",fuel:"⛽"},FI={mine:"⛏️",refinery:"🏭",factory:"⚙️",copperMine:"🪓",silicaExtractor:"🔷",fuelPlant:"⛽"};
+const ICON={ore:"🪨",ref:"🔩",comp:"⚙️",copper:"🟠",silica:"🔷",fuel:"⛽",ice:"🧊",rare:"💎"},FI={mine:"⛏️",refinery:"🏭",factory:"⚙️",copperMine:"🪓",silicaExtractor:"🔷",fuelPlant:"⛽"};
 const POS={Terra:[100,160],Lua:[300,58],Marte:[500,175]};
 const COL={Terra:["#6fc0ff","#1b5fa8"],Lua:["#e3e6ea","#7a808c"],Marte:["#ff9a6b","#b3411e"]};
 const DESC={Terra:"Centro consumidor: muita demanda por minério e ferro.",Lua:"Compra minério em volume, mas paga pouco.",Marte:"Sua base. Pagam bem por ferro refinado e componentes."};
@@ -280,6 +282,74 @@ const ASTEROIDS=[
  {id:"eros-12",name:"Eros-12",materials:["silício","componentes"],richness:"Média",duration:5,reward:5500},
  {id:"bennu-3",name:"Bennu-3",materials:["silicatos","metais raros"],richness:"Muito alta",duration:12,reward:11000}
 ];
+
+const ASTEROID_RESOURCE_KEY={"gelo":"ice","silicatos":"silica","minério de ferro":"ore","ferro refinado":"ref","cobre":"copper","componentes":"comp","silício":"silica","metais raros":"rare"};
+function asteroidMaterialKey(name){return ASTEROID_RESOURCE_KEY[String(name).toLowerCase()]||null}
+function initializeAsteroidDeposits(discovery){
+ if(!S.asteroidDeposits||typeof S.asteroidDeposits!=="object")S.asteroidDeposits={};
+ const id=discovery.id;if(!S.asteroidDeposits[id])S.asteroidDeposits[id]={};
+ const factor=discovery.richness==="Muito alta"?2.5:discovery.richness==="Alta"?1.7:1;
+ (discovery.materials||[]).forEach(name=>{const key=asteroidMaterialKey(name);if(key&&!Object.prototype.hasOwnProperty.call(S.asteroidDeposits[id],key))S.asteroidDeposits[id][key]=Math.round(6000*factor)});
+}
+function buildAsteroidPlatform(asteroidId,material){
+ const d=S.discoveries.find(x=>x.id===asteroidId);if(!d)throw Error("Só é possível minerar asteroides já descobertos.");
+ initializeAsteroidDeposits(d);const deposits=S.asteroidDeposits[asteroidId];
+ if(!Object.prototype.hasOwnProperty.call(deposits,material)||deposits[material]<=0)throw Error("Este depósito está esgotado ou não existe.");
+ if(S.miningPlatforms.some(x=>x.asteroidId===asteroidId&&x.material===material))throw Error("Já existe uma plataforma neste depósito.");
+ const planet=$("minePlanet")?.value||sel,inputs={comp:20,fuel:10},cost=12000;
+ if(!L.includes(planet))throw Error("Escolha um planeta válido para pagar a construção.");
+ if(S.cash<cost)throw Error("Caixa insuficiente: a plataforma custa "+money(cost)+".");
+ requireInputs(planet,inputs);spend(cost);
+ S.miningPlatforms.push({id:++S.nid,asteroidId,material,level:1,stock:0,capacity:500,builtAt:S.t});
+ say("Plataforma de mineração construída em "+d.name+" para "+PN[material].toLowerCase()+". Custo: "+money(cost)+" e "+inputCostLabel(inputs)+".","finance");
+ return "Plataforma construída em "+d.name+". A extração começa automaticamente.";
+}
+function upgradeAsteroidPlatform(id){
+ const m=S.miningPlatforms.find(x=>x.id===id);if(!m)throw Error("Plataforma não encontrada.");
+ if((m.level||1)>=5)throw Error("A plataforma já está no nível máximo.");
+ const planet=$("minePlanet")?.value||sel,level=m.level||1,cost=8000*level,inputs={comp:10*level,fuel:5*level};
+ if(S.cash<cost)throw Error("Caixa insuficiente: melhoria custa "+money(cost)+".");
+ requireInputs(planet,inputs);spend(cost);m.level=level+1;m.capacity=(m.capacity||500)+250;
+ say("Plataforma de "+PN[m.material].toLowerCase()+" em "+(S.discoveries.find(x=>x.id===m.asteroidId)?.name||m.asteroidId)+" melhorada para nível "+m.level+".","finance");
+ return "Plataforma melhorada para nível "+m.level+"; capacidade de armazenamento aumentada.";
+}
+function dispatchAsteroidCargo(id){
+ const m=S.miningPlatforms.find(x=>x.id===id);if(!m)throw Error("Plataforma não encontrada.");
+ const shipId=Number($("mineShip")?.value),v=S.ships.find(x=>x.id===shipId),dest=$("mineDest")?.value,d=S.discoveries.find(x=>x.id===m.asteroidId);
+ if(!v||!availableShips().some(x=>x.id===v.id))throw Error("Escolha uma nave disponível.");
+ if(!L.includes(dest))throw Error("Escolha um planeta de destino.");
+ if(m.stock<1)throw Error("Ainda não há carga suficiente no armazém do asteroide.");
+ const q=Math.floor(Math.min(m.stock,v.capacity,Math.max(0,free(dest)-incoming(dest))));
+ if(q<1)throw Error("A carga não cabe no cargueiro ou o armazém de destino está cheio.");
+ const cost=500+q*1.5;if(S.cash<cost)throw Error("Caixa insuficiente para a expedição de carga: "+money(cost)+".");
+ S.cash-=cost;rec(0,cost,"freight");m.stock-=q;
+ const eta=S.t+(d.duration*2)/Math.max(.1,v.speed);
+ S.miningTrips.push({id:++S.nid,shipId:v.id,asteroidId:m.asteroidId,asteroidName:d.name,material:m.material,q,dest,cost,s:S.t,eta});
+ say(v.name+" partiu para recolher "+q+" "+PN[m.material].toLowerCase()+" em "+d.name+"; destino "+dest+". Frete e operação: "+money(cost)+".","logistics");
+ return "Carga enviada: "+q+" "+PN[m.material].toLowerCase()+". Retorno estimado em "+(eta-S.t).toFixed(1)+" horas de jogo.";
+}
+function renderAsteroidMining(){
+ const root=$("miningPlatforms");if(!root)return;
+ const planet=$("minePlanet"),shipSel=$("mineShip"),dest=$("mineDest");
+ if(planet){const old=planet.value;planet.innerHTML=opts(L);planet.value=L.includes(old)?old:sel}
+ if(dest){const old=dest.value;dest.innerHTML=opts(L);dest.value=L.includes(old)?old:sel}
+ if(shipSel){const old=shipSel.value,ships=availableShips();shipSel.innerHTML=ships.length?ships.map(v=>'<option value="'+v.id+'">'+v.name+' · cap. '+v.capacity+'</option>').join(""):'<option value="">Nenhuma nave disponível</option>';if(ships.some(v=>String(v.id)===old))shipSel.value=old;shipSel.disabled=!ships.length}
+ (S.discoveries||[]).forEach(initializeAsteroidDeposits);
+ const cards=[];
+ (S.discoveries||[]).forEach(d=>{
+  initializeAsteroidDeposits(d);const dep=S.asteroidDeposits[d.id]||{};
+  (d.materials||[]).forEach(name=>{
+   const key=asteroidMaterialKey(name);if(!key)return;
+   const reserve=dep[key]||0,platform=S.miningPlatforms.find(x=>x.asteroidId===d.id&&x.material===key);
+   if(!platform){cards.push('<article class="fc idle"><span class="ic">🪨</span><div><b>'+d.name+' · '+PN[key]+'</b><small>Depósito restante: '+Math.floor(reserve).toLocaleString("pt-BR")+' un. · construção: ₡12.000 + 20 componentes + 10 combustível</small></div><button '+(reserve<=0?'disabled':'')+' onclick="act(()=>buildAsteroidPlatform(\''+d.id+'\',\''+key+'\'))">'+(reserve>0?'Construir plataforma':'Depósito esgotado')+'</button></article>');return}
+   const richness=ASTEROIDS.find(a=>a.id===d.id)?.richness||d.richness||"Média",rate=8*(richness==="Muito alta"?1.8:richness==="Alta"?1.35:1)*(1+.25*((platform.level||1)-1)),upCost=8000*(platform.level||1);
+   cards.push('<article class="fc run"><span class="ic">⛏️</span><div><b>'+d.name+' · '+PN[key]+' · Nv. '+(platform.level||1)+'</b><small>Estoque '+Math.floor(platform.stock)+'/'+platform.capacity+' un. · extração '+rate.toFixed(1)+' un./h · depósito restante '+Math.floor(reserve).toLocaleString("pt-BR")+' un. · operação ₡'+(25*(platform.level||1))+'/h</small></div><button '+((platform.level||1)>=5?'disabled':'')+' onclick="act(()=>upgradeAsteroidPlatform('+platform.id+'))">Melhorar · '+money(upCost)+'</button><button '+(!availableShips().length||platform.stock<1?'disabled':'')+' onclick="act(()=>dispatchAsteroidCargo('+platform.id+'))">Enviar cargueiro</button></article>');
+  });
+ });
+ const trips=(S.miningTrips||[]).map(t=>'<article class="fc idle"><span class="ic">🚀</span><div><b>'+t.asteroidName+' → '+t.dest+'</b><small>'+Math.floor(t.q)+' '+PN[t.material].toLowerCase()+' · retorno '+Math.max(0,t.eta-S.t).toFixed(1)+' h'+(t.blocked?' · bloqueado: destino cheio':'')+'</small></div><em>Em trânsito</em></article>');
+ root.innerHTML=(cards.length?cards.join(""):'<p class="mut">Nenhum depósito disponível. Complete missões de reconhecimento para desbloquear a mineração.</p>')+(trips.length?'<h4>Cargas espaciais em trânsito</h4>'+trips.join(""):'');
+}
+
 function launchExploration(){
  const shipId=Number(g("exploreShip")),ship=S.ships.find(v=>v.id===shipId),planet=g("explorePlanet"),target=ASTEROIDS.find(a=>a.id===g("exploreTarget"));
  if(!ship||!availableShips().some(v=>v.id===ship.id))throw Error("Escolha uma nave disponível; naves em viagem ou exploração não podem partir.");
@@ -392,7 +462,7 @@ function render(){const f=fin();
  put("pr",P.map(p=>`<div class="m"><small>${ICON[p]} ${PN[p]}</small><b>${Math.round(S.prod[p]).toLocaleString("pt-BR")}</b></div>`).join(""));
  const H=S.hist.filter(x=>x[0]>=S.t-24);if(H.length>1){const mx=Math.max(...H.map(x=>Math.max(x[1],x[2],1))),mn=Math.min(0,...H.map(x=>x[1])),Xp=i=>i/(H.length-1)*600,Y=v=>190-(v-mn)/(mx-mn||1)*180,pl=(j,c)=>`<polyline fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke" points="${H.map((x,i)=>Xp(i).toFixed(1)+","+Y(x[j]).toFixed(1)).join(" ")}"/>`;put("ch",pl(1,"#5b8cff")+pl(2,"#3ddc97"))}drawEconomicChart(H);
  put("ru",S.rules.length?S.rules.map(r=>`<div class="card rc"><div><b>${KIND[r.k]}</b><br>${ruleText(r)}<br><span class="chip">${r.on?"🟢 Ativo":"⏸ Pausado"} · ${r.st}</span></div><button onclick="rl(${r.id},0)">${r.on?"⏸ Pausar":"▶ Ativar"}</button><button onclick="rl(${r.id},1)">🗑</button></div>`).join(""):`<p class="mut">Nenhum gerente ainda. Contrate um e deixe a empresa trabalhar sozinha.</p>`);
- put("dj",journal());renderExploration();
+ put("dj",journal());renderExploration();renderAsteroidMining();
  const i=S.log.indexOf(lastLog);(i<0?S.log.slice(0,3):S.log.slice(0,i)).reverse().forEach(e=>{if(/concluído|construída|ampliad|Demanda|Gerente/.test(e[1]))toast(e[1])});lastLog=S.log[0]}
 function drawEconomicChart(H){const root=$("econch");if(!root)return;root.innerHTML="";if(H.length<2)return;const vals=H.flatMap(x=>[x[3]||0,x[4]||0,x[5]||0]),mx=Math.max(1,...vals),mn=Math.min(0,...vals),Xp=i=>i/(H.length-1)*600,Y=v=>190-(v-mn)/(mx-mn||1)*180;[[3,"#5b8cff"],[4,"#ff6b6b"],[5,"#3ddc97"]].forEach(([j,c])=>{const p=document.createElementNS("http://www.w3.org/2000/svg","polyline");p.setAttribute("fill","none");p.setAttribute("stroke",c);p.setAttribute("stroke-width","2");p.setAttribute("vector-effect","non-scaling-stroke");p.setAttribute("points",H.map((x,i)=>Xp(i).toFixed(1)+","+Y(x[j]||0).toFixed(1)).join(" "));root.appendChild(p)})}
 $("al").innerHTML=opts(L);$("ad").innerHTML=opts(L);$("ap").innerHTML=opts(P,PN);$("al").value="Marte";$("ad").value="Terra";
