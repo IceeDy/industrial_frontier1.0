@@ -230,14 +230,26 @@ function fin(){let inv=0;L.forEach(l=>P.forEach(p=>inv+=S.inv[l][p]*E(l,p).price
  const rate=k=>rows.filter(x=>x[3]===k).reduce((a,x)=>a+x[2],0)/w;
  const rv=rows.reduce((a,x)=>a+x[1],0)/w,cs=rows.reduce((a,x)=>a+x[2],0)/w,purchases=rate("purchase"),freight=rate("freight"),op=rows.filter(x=>x[3]==="operating"||!x[3]).reduce((a,x)=>a+x[2],0)/w;
  return{cash:S.cash,assets,inv,cargo,fixed,rv,cs,purchases,freight,op,pr:rv-cs,val:S.cash+assets,liquidity:(S.cash/Math.max(1,S.cash+assets))*100}}
+function productionThrottle(loc,product){
+ const buffers={ore:200,ref:100,comp:150,copper:100,silica:100,fuel:80,ice:50,rare:20};
+ let hourlyUse=0;
+ S.fac.forEach(f=>{if(f.loc!==loc)return;const spec=SPEC[f.k],recipe=RECIPES[spec?.recipe];if(!recipe)return;
+  const levelMul=1+.25*((f.level||1)-1),outputRate=spec.rate*recipe.factor*levelMul;
+  hourlyUse+=(recipe.inputs[product]||0)*outputRate;
+ });
+ const target=Math.max(buffers[product]||50,hourlyUse*12),stock=Math.max(0,S.inv[loc]?.[product]||0);
+ if(stock>=target)return 0;
+ if(stock<=target*.75)return 1;
+ return Math.max(0,Math.min(1,(target-stock)/(target*.25)));
+}
 function advance(h){S.prodLog=S.prodLog||{};while(h>1e-9){const dt=Math.min(.05,h);h-=dt;const ph=Math.floor(S.t);S.t+=dt;
   S.rules.forEach(r=>{const interval=(r.k==="smartTrade"||r.k==="smartTransport") ? 0.1 : 1;if(!r.on||(r.last!==null&&S.t-r.last<interval-1e-9))return;r.last=S.t;try{r.st=rule(r)}catch(x){r.st="Falhou: "+x.message}});
   S.fac.forEach(f=>{const sp=SPEC[f.k],loc=f.loc;let a=0,p,usedInputs={};const lvl=f.level||1,mul=1+.25*(lvl-1);const reason=facilityBlockReason(f),nextState=reason?"blocked":"running";if(f._runState!==nextState){if(f._runState!==undefined||reason)say(reason?`${sp.n} em ${loc} parou: ${reason}.`:`${sp.n} em ${loc} retomou a produção.`,reason?"warning":"production");f._runState=nextState;}
-   if(f.k==="mine"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].ore+=a;p="ore"}
-   else if(RECIPES[sp.recipe]){const recipe=RECIPES[sp.recipe],out=Math.min(sp.rate*recipe.factor*mul*dt,...Object.entries(recipe.inputs).map(([material,qty])=>S.inv[loc][material]/qty));if(out>1e-9){Object.entries(recipe.inputs).forEach(([material,qty])=>{usedInputs[material]=out*qty;S.inv[loc][material]-=out*qty});a=out;S.inv[loc][recipe.output]+=out}p=recipe.output}
-   else if(f.k==="copperMine"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].copper+=a;p="copper"}
-   else if(f.k==="silicaExtractor"){a=Math.min(sp.rate*mul*dt,free(loc));if(a>1e-9)S.inv[loc].silica+=a;p="silica"}
-   else if(f.k==="fuelPlant"){const i=Math.min(sp.rate*2*mul*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
+   if(f.k==="mine"){const throttle=productionThrottle(loc,"ore");a=Math.min(sp.rate*mul*throttle*dt,free(loc));if(a>1e-9)S.inv[loc].ore+=a;p="ore"}
+   else if(RECIPES[sp.recipe]){const recipe=RECIPES[sp.recipe],throttle=productionThrottle(loc,recipe.output),out=Math.min(sp.rate*recipe.factor*mul*throttle*dt,...Object.entries(recipe.inputs).map(([material,qty])=>S.inv[loc][material]/qty));if(out>1e-9){Object.entries(recipe.inputs).forEach(([material,qty])=>{usedInputs[material]=out*qty;S.inv[loc][material]-=out*qty});a=out;S.inv[loc][recipe.output]+=out}p=recipe.output}
+   else if(f.k==="copperMine"){const throttle=productionThrottle(loc,"copper");a=Math.min(sp.rate*mul*throttle*dt,free(loc));if(a>1e-9)S.inv[loc].copper+=a;p="copper"}
+   else if(f.k==="silicaExtractor"){const throttle=productionThrottle(loc,"silica");a=Math.min(sp.rate*mul*throttle*dt,free(loc));if(a>1e-9)S.inv[loc].silica+=a;p="silica"}
+   else if(f.k==="fuelPlant"){const throttle=productionThrottle(loc,"fuel"),i=Math.min(sp.rate*2*mul*throttle*dt,S.inv[loc].ore);a=i/2;if(a>1e-9){S.inv[loc].ore-=i;S.inv[loc].fuel+=a}p="fuel"}
    if(a>1e-9){f.prod+=a;S.prod[p]+=a;const key=String(f.id);if(!S.prodLog[key])S.prodLog[key]={id:f.id,k:f.k,loc:f.loc,p,a:0,inputs:{}};if(!S.prodLog[key].inputs)S.prodLog[key].inputs={};S.prodLog[key].a+=a;Object.entries(usedInputs).forEach(([material,q])=>S.prodLog[key].inputs[material]=(S.prodLog[key].inputs[material]||0)+q)}});
   S.tr.slice().forEach(t=>{if(S.t+1e-9<t.eta)return;if(free(t.d)+1e-9>=t.q){S.inv[t.d][t.p]+=t.q;S.tr.splice(S.tr.indexOf(t),1);say(`Transporte ${t.o} → ${t.d} concluído: ${t.q} ${PN[t.p].toLowerCase()} entregues.`)}else if(!t.blocked){t.blocked=true;t.blockedAt=S.t;say(`Entrega ${t.o} → ${t.d} bloqueada: armazém de destino sem espaço para ${t.q} un. Libere espaço ou amplie o armazém.`,"warning")}});
   (S.expeditions||[]).slice().forEach(e=>{if(S.t+1e-9<e.eta)return;const target=ASTEROIDS.find(a=>a.id===e.targetId);if(target&&!S.discoveries.some(d=>d.id===target.id)){S.discoveries.push({id:target.id,name:target.name,materials:target.materials,richness:target.richness,discoveredAt:S.t,launchPlanet:e.launchPlanet});initializeAsteroidDeposits(S.discoveries[S.discoveries.length-1]);S.cash+=target.reward;rec(target.reward,0,"exploration");say(`Reconhecimento concluído: ${target.name} catalogado. Depósitos identificados: ${target.materials.join(", ")}. Recompensa ${money(target.reward)}.`,"system")}else say(`Missão de reconhecimento concluída sem nova descoberta em ${e.targetName}.`,"system");S.expeditions.splice(S.expeditions.indexOf(e),1)});
