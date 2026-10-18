@@ -295,7 +295,7 @@ function launchExploration(){
 }
 function renderExploration(){
  const shipSel=$("exploreShip"),planetSel=$("explorePlanet"),targetSel=$("exploreTarget");if(!shipSel||!planetSel||!targetSel)return;
- const ships=availableShips(),oldShip=shipSel.value;shipSel.innerHTML=ships.length?ships.map(v=>`<option value="${v.id}">${v.name} · cap. ${v.capacity} · ${v.speed.toFixed(2)}x</option>`).join(""):"<option value="">Nenhuma nave disponível</option>";
+ const ships=availableShips(),oldShip=shipSel.value;shipSel.innerHTML=ships.length?ships.map(v=>'<option value="' + v.id + '">' + v.name + ' · cap. ' + v.capacity + ' · ' + v.speed.toFixed(2) + 'x</option>').join(""):"<option value="">Nenhuma nave disponível</option>";
  if(ships.some(v=>String(v.id)===oldShip))shipSel.value=oldShip;shipSel.disabled=!ships.length;
  const oldPlanet=planetSel.value;planetSel.innerHTML=opts(L);planetSel.value=L.includes(oldPlanet)?oldPlanet:sel;
  const remaining=ASTEROIDS.filter(a=>!S.discoveries.some(d=>d.id===a.id)&&!S.expeditions.some(e=>e.targetId===a.id));
