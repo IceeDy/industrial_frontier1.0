@@ -406,14 +406,25 @@ function mapSvg(){let s=`<defs>${L.map(l=>`<radialGradient id="g${l}" cx="35%" c
  L.forEach(l=>{const[x,y]=POS[l],n=k=>S.fac.filter(f=>f.loc===l&&f.k===k).length,u=P.reduce((a,p)=>a+S.inv[l][p],0);
   s+=`<g class="pl${l===sel?" on":""}" onclick="pick('${l}')"><circle cx="${x}" cy="${y}" r="44" fill="url(#g${l})"/><text class="pn" x="${x}" y="${y+66}">${l}</text><text class="pb" x="${x}" y="${y+84}">${Object.keys(SPEC).map(k=>n(k)?FI[k]+n(k)+" ":"").join("")}📦 ${Math.round(u)}/${S.cap[l]}</text></g>`});
  S.tr.forEach(t=>{const p=Math.min(1,(S.t-t.s)/(t.eta-t.s)),[x1,y1]=POS[t.o],[x2,y2]=POS[t.d];s+=`<text class="sh" x="${(x1+(x2-x1)*p).toFixed(1)}" y="${(y1+(y2-y1)*p).toFixed(1)}">🚀</text>`});return s}
+function marketBuyCapacity(l,p,m=E(l,p)){
+ const limit=Math.max(0,Math.floor(Math.min(m.stock-1,free(l))));
+ const costFor=q=>{if(q<=0)return 0;const base=m.price,target=pf(m,m.stock-q),after=base+(target-base)*.2;return q*(base+after)/2};
+ let lo=0,hi=limit;while(lo<hi){const mid=Math.ceil((lo+hi)/2);if(costFor(mid)<=S.cash)lo=mid;else hi=mid-1}
+ const incomingQty=S.tr.filter(t=>t.d===l&&t.p===p).reduce((a,t)=>a+t.q,0)+(S.miningTrips||[]).filter(t=>t.dest===l&&t.material===p).reduce((a,t)=>a+t.q,0);
+ return{quantity:lo,cost:costFor(lo),marketLimit:Math.max(0,Math.floor(m.stock-1)),warehouseLimit:Math.max(0,Math.floor(free(l))),incoming:incomingQty};
+}
 function marketTrend(m){if(!Array.isArray(m.hist)||m.hist.length<2)return null;const base=m.hist[0][1];return base>0?(m.price/base-1)*100:0}
-function card(l,p){const m=E(l,p),pc=(m.price/m.base-1)*100,have=S.inv[l][p],cv=Math.min(100,m.stock/tgt(m)*50),mm=marketMetrics(m),trend=marketTrend(m),trendLabel=m.hist.length>=25?"24h":"desde início";
+function card(l,p){const m=E(l,p),pc=(m.price/m.base-1)*100,have=S.inv[l][p],cv=Math.min(100,m.stock/tgt(m)*50),mm=marketMetrics(m),trend=marketTrend(m),trendLabel=m.hist.length>=25?"24h":"desde início",buyCap=marketBuyCapacity(l,p,m);
  const stateColor=mm.state==="Escassez"?"var(--er)":mm.state==="Excesso de oferta"?"var(--ok)":"var(--ac)";
- return`<div class="pc"><div class="ph"><span class="ic">${ICON[p]}</span><div><b>${PN[p]}</b><small>Você tem ${Math.floor(have)}</small></div><div class="pr ${pc>=0?"up":"dn"}">₡${m.price.toFixed(1)}<small>${pc>=0?"▲":"▼"} ${Math.abs(pc).toFixed(0)}% vs. normal</small><small>${trend===null?"Tendência em formação":`${trend>=0?"▲":"▼"} ${Math.abs(trend).toFixed(1)}% ${trendLabel}`}</small></div></div>
- <small>Estoque do mercado: ${Math.round(m.stock)} un. · cobertura: ${mm.coverage.toFixed(1)}h</small><div class="pg"><i style="width:${cv}%;background:${cv>66?"var(--er)":cv<25?"var(--ok)":"var(--ac)"}"></i></div>
- <div class="rc"><span class="chip">Oferta: ${mm.supply.toFixed(1)}/h</span><span class="chip">Demanda: ${mm.demand.toFixed(1)}/h</span><b style="color:${stateColor}">${mm.state}</b></div>
- <small>Oferta e demanda movem o estoque; o preço se ajusta gradualmente. A tendência compara o preço atual com o histórico recente.</small>
- <div class="bt"><span>Vender</span>${[.1,.5,1].map(f=>`<button onclick="tr('${l}','${p}',1,${f})">${f<1?f*100+"%":"Tudo"}</button>`).join("")}<span>Comprar</span>${[100,500].map(n=>`<button onclick="tr('${l}','${p}',0,${n})">+${n}</button>`).join("")}</div></div>`}
+ return`<div class="pc"><div class="ph"><span class="ic">${ICON[p]}</span><div><b>${PN[p]}</b><small>Meu estoque: ${Math.floor(have)} un.</small></div><div class="pr ${pc>=0?"up":"dn"}">₡${m.price.toFixed(1)}<small>${pc>=0?"▲":"▼"} ${Math.abs(pc).toFixed(0)}% vs. normal</small><small>${trend===null?"Tendência em formação":`${trend>=0?"▲":"▼"} ${Math.abs(trend).toFixed(1)}% ${trendLabel}`}</small></div></div>
+ <div class="rc"><span class="chip">Estoque total do mercado: ${Math.floor(m.stock).toLocaleString("pt-BR")} un.</span><span class="chip">Cobertura estimada: ${mm.coverage.toFixed(1)} h</span></div>
+ <small>Disponível para você comprar agora: <b>${buyCap.quantity.toLocaleString("pt-BR")} un.</b> · custo estimado: ${money(buyCap.cost)}</small>
+ <small>Limites da compra: oferta do mercado ${buyCap.marketLimit.toLocaleString("pt-BR")} un. · espaço livre no armazém ${buyCap.warehouseLimit.toLocaleString("pt-BR")} un. · caixa ${money(S.cash)}.</small>
+ <small>Em trânsito para ${l}: ${Math.floor(buyCap.incoming).toLocaleString("pt-BR")} un. deste material (ainda não incluídas no meu estoque).</small>
+ <div class="pg"><i style="width:${cv}%;background:${cv>66?"var(--er)":cv<25?"var(--ok)":"var(--ac)"}"></i></div>
+ <div class="rc"><span class="chip">Reposição/oferta: ${mm.supply.toFixed(1)}/h</span><span class="chip">Demanda: ${mm.demand.toFixed(1)}/h</span><b style="color:${stateColor}">${mm.state}</b></div>
+ <small>O estoque do mercado é a oferta compartilhada por todos os compradores; o disponível para sua compra é limitado também pelo seu caixa e pelo espaço livre no armazém. Os preços mudam conforme as transações e a oferta/demanda.</small>
+ <div class="bt"><span>Vender</span>${[.1,.5,1].map(f=>`<button onclick="tr('${l}','${p}',1,${f})">${f<1?f*100+"%":"Tudo"}</button>`).join("")}<span>Comprar</span>${[100,500].map(n=>`<button onclick="tr('${l}','${p}',0,${n})">+${n}</button>`).join("")}<button onclick="tr('${l}','${p}',0,${buyCap.quantity})">Máximo disponível</button></div></div>`}
 function materialFlowPanel(l){
  const flows=Object.fromEntries(P.map(p=>[p,{prod:0,use:0}]));
  S.fac.filter(f=>f.loc===l).forEach(f=>{
