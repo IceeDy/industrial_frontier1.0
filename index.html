@@ -424,7 +424,7 @@ function card(l,p){const m=E(l,p),pc=(m.price/m.base-1)*100,have=S.inv[l][p],cv=
  <div class="pg"><i style="width:${cv}%;background:${cv>66?"var(--er)":cv<25?"var(--ok)":"var(--ac)"}"></i></div>
  <div class="rc"><span class="chip">Reposição/oferta: ${mm.supply.toFixed(1)}/h</span><span class="chip">Demanda: ${mm.demand.toFixed(1)}/h</span><b style="color:${stateColor}">${mm.state}</b></div>
  <small>O estoque do mercado é a oferta compartilhada por todos os compradores; o disponível para sua compra é limitado também pelo seu caixa e pelo espaço livre no armazém. Os preços mudam conforme as transações e a oferta/demanda.</small>
- <div class="bt"><span>Vender</span>${[.1,.5,1].map(f=>`<button onclick="tr('${l}','${p}',1,${f})">${f<1?f*100+"%":"Tudo"}</button>`).join("")}<span>Comprar</span>${[100,500].map(n=>`<button onclick="tr('${l}','${p}',0,${n})">+${n}</button>`).join("")}<button onclick="tr('${l}','${p}',0,'max')">Máximo disponível</button></div></div>`}
+ <div class="bt"><span>Vender</span>${[.1,.5,1].map(f=>`<button onclick="tr('${l}','${p}',1,${f})">${f<1?f*100+"%":"Tudo"}</button>`).join("")}<span>Comprar</span>${[100,500].map(n=>`<button onclick="tr('${l}','${p}',0,${n})">+${n}</button>`).join("")}<button onclick="tr('${l}','${p}',0,${buyCap.quantity})">Máximo disponível</button></div></div>`}
 function materialFlowPanel(l){
  const flows=Object.fromEntries(P.map(p=>[p,{prod:0,use:0}]));
  S.fac.filter(f=>f.loc===l).forEach(f=>{
